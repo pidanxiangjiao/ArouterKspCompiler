@@ -1,0 +1,3 @@
+cn.jailedbird.db.ksp.compiler.RouteSymbolProcessorProvider
+cn.jailedbird.db.ksp.compiler.InterceptorSymbolProcessorProvider
+cn.jailedbird.db.ksp.compiler.AutowiredSymbolProcessorProvider
