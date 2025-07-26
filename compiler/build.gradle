@@ -1,40 +1,133 @@
-plugins {
-    id 'java-library'
-    id 'org.jetbrains.kotlin.jvm'
+import org.gradle.internal.jvm.Jvm
+
+/*
+ * Copyright (C) 2014 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+apply plugin: 'java'
+apply plugin: 'kotlin'
+//apply plugin: 'kotlin-kapt'
+
+//sourceCompatibility = dataBindingConfig.compilerJavaTargetCompatibility
+//targetCompatibility = dataBindingConfig.compilerJavaSourceCompatibility
+
+sourceSets {
+    main.java.srcDirs += 'src/main/kotlin'
 }
 
 compileJava {
-    sourceCompatibility = '17'
-    targetCompatibility = '17'
+    sourceCompatibility = '1.8'
+    targetCompatibility = '1.8'
 }
-
-java {
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
-}
-
-tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
-    kotlinOptions {
-        freeCompilerArgs += "-Xopt-in=kotlin.RequiresOptIn"
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+kotlin {
+    compilerOptions {
+        jvmTarget = JvmTarget.JVM_1_8
     }
 }
+//kotlinOptions {
+//    jvmTarget = '1.8'
+//}
+//compileJava {
+//    sourceCompatibility = '1.8'
+//    targetCompatibility = '1.8'
+//}
+//
+//java {
+//    sourceCompatibility = JavaVersion.VERSION_1_8
+//    targetCompatibility = JavaVersion.VERSION_1_8
+//}
+
+//buildscript {
+//    repositories {
+//        maven { url "https://maven.aliyun.com/repository/public" }
+//        maven { url "https://maven.aliyun.com/repository/google" }
+//        maven { url "https://maven.aliyun.com/repository/gradle-plugin" }
+//        google()
+//        mavenCentral()
+//        gradlePluginPortal()
+//    }
+//
+//    dependencies {
+//        classpath libs.apache.commons.io
+//        classpath libs.kotlin.gradle.plugin
+//    }
+//}
 
 dependencies {
-    implementation 'com.alibaba:arouter-annotation:1.0.6'
+    implementation project(':compilerCommon')
+    implementation project(':baseLibrary')
+    implementation 'com.android.tools:annotations:24.5.0'
+    implementation libs.kotlin.stdlib
+    implementation libs.auto.common
+    implementation libs.javapoet
+    implementation libs.gson
 
-    // implementation 'com.squareup:javapoet:1.8.0'
+    implementation libs.apache.commons.io
+    implementation libs.apache.commons.codec
+    implementation libs.antlr4
+    implementation libs.juniversalchardet
+    implementation libs.jaxb.runtime
 
-    // implementation 'org.apache.commons:commons-lang3:3.5'
-    // implementation 'org.apache.commons:commons-collections4:4.1'
+//    testImplementation libs.junit
+//    testImplementation libs.mockito.core
+//    testImplementation libs.compile.testing
+//    testImplementation libs.truth
 
-    implementation 'com.alibaba:fastjson:1.2.69'
-
-    // ksp https://github.com/google/ksp/releases/tag/1.9.10-1.0.13
-    implementation 'com.google.devtools.ksp:symbol-processing-api:2.0.20-1.0.25'
-    // https://square.github.io/kotlinpoet/
-    implementation("com.squareup:kotlinpoet:1.17.0")
-    implementation("com.squareup:kotlinpoet-ksp:1.17.0")
-    implementation("com.squareup:kotlinpoet-metadata:1.17.0")
+//    if (!Jvm.current().javaVersion.isJava9Compatible()) {
+//        testImplementation files(Jvm.current().getToolsJar())
+//    }
+//    implementation 'com.google.auto.service:auto-service:1.1.1'
+//    annotationProcessor 'com.google.auto.service:auto-service:1.1.1'  // Java项目
+//    kapt 'com.google.auto.service:auto-service:1.1.1'
 }
 
-apply from: rootProject.file("gradle/maven-publish.gradle")
+archivesBaseName = "databinding-compiler"
+
+//if (dataBindingConfig.isIndependent) {
+//    uploadArchives {
+//        repositories {
+//            mavenDeployer {
+//                pom.artifactId = 'compiler'
+//                pom.project {
+//                    licenses {
+//                        license {
+//                            name dataBindingConfig.licenseName
+//                            url dataBindingConfig.licenseUrl
+//                            distribution dataBindingConfig.licenseDistribution
+//                        }
+//                    }
+//                }
+//            }
+//        }
+//    }
+//    javadoc {
+//        options.addStringOption('Xdoclint:none', '-quiet')
+//    }
+//} else {
+//    enablePublishing(this, true)
+//
+//    publishing {
+//        publications {
+//            withType(MavenPublication) {
+//                artifactId = 'databinding-compiler'
+//            }
+//        }
+//    }
+//}
+
+project.ext.pomName = 'Data Binding Annotation Processor'
+project.ext.pomDesc = 'The annotation processor for Data Binding. Generates binding classes for runtime.'
+//fullJar(project)
+//test.enabled = !System.getProperty("java.version").startsWith("1.6")
