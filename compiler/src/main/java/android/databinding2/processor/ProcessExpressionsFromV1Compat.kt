@@ -17,7 +17,7 @@
 package android.databinding2.processor
 
 import android.databinding.tool.CompilerChef
-import android.databinding.tool.CompilerArguments
+import android.databinding2.tool.CompilerArguments
 import android.databinding.tool.reflection.ModelAnalyzer
 import android.databinding.tool.store.ResourceBundle
 import android.databinding.tool.writer.BindingMapperWriterV2
@@ -81,7 +81,8 @@ class ProcessExpressionsFromV1Compat(
      */
     private fun writeResourceBundle(
         resourceBundle: ResourceBundle,
-        compilerArgs: CompilerArguments): CompilerChef? {
+        compilerArgs: CompilerArguments
+    ): CompilerChef? {
         val compilerChef = CompilerChef.createChef(
             resourceBundle,
             writer, compilerArgs

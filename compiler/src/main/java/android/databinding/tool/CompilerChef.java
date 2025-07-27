@@ -27,6 +27,8 @@ import android.databinding.tool.writer.BindingMapperWriter;
 import android.databinding.tool.writer.BindingMapperWriterV2;
 import android.databinding.tool.writer.JavaFileWriter;
 import android.databinding.tool.writer.MergedBindingMapperWriter;
+import android.databinding2.tool.CompilerArguments;
+
 import com.android.annotations.NonNull;
 import com.android.annotations.Nullable;
 import com.google.common.collect.Sets;

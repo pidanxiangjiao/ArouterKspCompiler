@@ -16,7 +16,7 @@
 
 package android.databinding2.processor;
 
-import android.databinding.tool.CompilerArguments;
+import android.databinding2.tool.CompilerArguments;
 import android.databinding.tool.CompilerChef;
 import android.databinding.tool.Context;
 import android.databinding.tool.processing.Scope;
@@ -61,17 +61,17 @@ import java.util.stream.Collectors;
         "androidx.databinding.InverseBindingMethods",
         "androidx.databinding.InverseMethod",
         "androidx.databinding.Untaggable",
-        "android.databinding.Bindable",
-        "android.databinding.BindingAdapter",
-        "android.databinding.BindingBuildInfo",
-        "android.databinding.BindingConversion",
-        "android.databinding.BindingMethod",
-        "android.databinding.BindingMethods",
-        "android.databinding.InverseBindingAdapter",
-        "android.databinding.InverseBindingMethod",
-        "android.databinding.InverseBindingMethods",
-        "android.databinding.InverseMethod",
-        "android.databinding.Untaggable"
+//        "android.databinding.Bindable",
+//        "android.databinding.BindingAdapter",
+//        "android.databinding.BindingBuildInfo",
+//        "android.databinding.BindingConversion",
+//        "android.databinding.BindingMethod",
+//        "android.databinding.BindingMethods",
+//        "android.databinding.InverseBindingAdapter",
+//        "android.databinding.InverseBindingMethod",
+//        "android.databinding.InverseBindingMethods",
+//        "android.databinding.InverseMethod",
+//        "android.databinding.Untaggable"
 })
 public class ProcessDataBinding extends AbstractProcessor {
 
@@ -198,6 +198,7 @@ public class ProcessDataBinding extends AbstractProcessor {
             L.d("processor args: %s", mCompilerArgs);
             ScopedException.encodeOutput(mCompilerArgs.getPrintEncodedErrorLogs());
         } catch (Throwable t) {
+            t.printStackTrace();
             String allParam = processingEnv.getOptions().entrySet().stream().map(
                     (entry) -> entry.getKey() + " : " + entry.getValue())
                     .collect(Collectors.joining("\n"));

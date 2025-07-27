@@ -17,7 +17,7 @@
 package android.databinding2.processor
 
 import android.databinding2.processor.ProcessBindable.Intermediate
-import android.databinding.tool.CompilerArguments
+import android.databinding2.tool.CompilerArguments
 import android.databinding.tool.Context
 import android.databinding.tool.DataBindingBuilder
 import android.databinding.tool.FeaturePackageInfo
@@ -38,10 +38,10 @@ import javax.lang.model.util.ElementFilter
  * the same fields between dependent features.
  */
 class BindableBag(
-        private val compilerArgs: CompilerArguments,
+    private val compilerArgs: CompilerArguments,
         // BR fields in curretn module
-        moduleProperties: Set<String>,
-        private val env: ProcessingEnvironment) {
+    moduleProperties: Set<String>,
+    private val env: ProcessingEnvironment) {
     // The BR fields we will generate.
     val toBeGenerated: List<ModuleBR>
     // The list of package names that are generated. We usually generate for all dependencies

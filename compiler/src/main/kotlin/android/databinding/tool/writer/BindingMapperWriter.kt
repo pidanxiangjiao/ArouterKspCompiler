@@ -14,16 +14,16 @@
 package android.databinding.tool.writer
 
 import android.databinding2.processor.BindableBag
-import android.databinding.tool.CompilerArguments
+import android.databinding2.tool.CompilerArguments
 import android.databinding.tool.LayoutBinder
 import android.databinding.tool.LibTypes
 
 class BindingMapperWriter(
-        var pkg : String,
-        var className: String,
-        private val layoutBinders : List<LayoutBinder>,
-        private val compilerArgs: CompilerArguments,
-        val libTypes: LibTypes) {
+    var pkg : String,
+    var className: String,
+    private val layoutBinders : List<LayoutBinder>,
+    private val compilerArgs: CompilerArguments,
+    val libTypes: LibTypes) {
     private val appClassName : String = className
     private val testClassName = "Test$className"
     private val baseMapperClassName = libTypes.dataBinderMapper

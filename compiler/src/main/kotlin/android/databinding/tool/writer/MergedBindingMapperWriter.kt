@@ -16,7 +16,7 @@
 
 package android.databinding.tool.writer
 
-import android.databinding.tool.CompilerArguments
+import android.databinding2.tool.CompilerArguments
 import android.databinding.tool.LibTypes
 import android.databinding.tool.ext.N
 import android.databinding.tool.ext.S
@@ -29,10 +29,10 @@ import com.squareup.javapoet.TypeSpec
 import javax.lang.model.element.Modifier
 
 class MergedBindingMapperWriter(
-        compilerArgs: CompilerArguments,
-        private val featurePackages : Set<String>,
-        private val hasV1CompatMapper: Boolean,
-        private val libTypes: LibTypes) {
+    compilerArgs: CompilerArguments,
+    private val featurePackages : Set<String>,
+    private val hasV1CompatMapper: Boolean,
+    private val libTypes: LibTypes) {
     private val generateAsTest = compilerArgs.isTestVariant && compilerArgs.isApp
     private val generateTestOverride = !generateAsTest && compilerArgs.isEnabledForTests
     private val overrideField = FieldSpec.builder(ClassName.bestGuess(libTypes.dataBinderMapper),

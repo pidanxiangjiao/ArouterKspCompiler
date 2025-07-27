@@ -17,7 +17,7 @@ package android.databinding2.processor;
 
 import android.databinding.tool.BindingAdapterCompat;
 import android.databinding.tool.BindingMethodsCompat;
-import android.databinding.tool.CompilerArguments;
+import android.databinding2.tool.CompilerArguments;
 import android.databinding.tool.InverseBindingAdapterCompat;
 import android.databinding.tool.InverseBindingMethodsCompat;
 import android.databinding.tool.InverseMethodCompat;

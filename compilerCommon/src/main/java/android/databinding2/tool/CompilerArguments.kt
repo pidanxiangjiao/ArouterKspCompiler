@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package android.databinding.tool
+package android.databinding2.tool
 
 import android.databinding.tool.util.Preconditions
 import com.google.common.base.Joiner
@@ -155,7 +155,7 @@ data class CompilerArguments constructor(
             args[PARAM_DIRECT_DEPENDENCY_PKGS] = directDependencyPackages
         }
         localR?.let { args[PARAM_LOCAL_R_FILE] = it.absolutePath}
-        dependenciesRFiles?.let { args[PARAM_DEPENDENCIES_R_FILES] = fileListToString(it)}
+        dependenciesRFiles?.let { args[PARAM_DEPENDENCIES_R_FILES] = fileListToString(it) }
         mergedDependenciesRFile?.let {args[PARAM_MERGED_DEPENDENCIES_R_FILE] = it.absolutePath}
 
         return args

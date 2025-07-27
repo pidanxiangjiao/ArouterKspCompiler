@@ -9,6 +9,7 @@ buildscript {
     dependencies {
 //        classpath 'com.your.company:your-plugin:1.0'
 //        classpath files('libs/databinding-compiler.jar')
+//        classpath files('libs/databinding-compiler-commonr.jar')
     }
 }
 plugins {

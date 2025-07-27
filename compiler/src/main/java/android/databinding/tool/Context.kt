@@ -28,6 +28,7 @@ import android.databinding.tool.util.GenerationalClassUtil
 import android.databinding.tool.util.L
 import android.databinding.tool.util.parseRTxtFiles
 import android.databinding.tool.util.Resources
+import android.databinding2.tool.CompilerArguments
 import javax.annotation.processing.ProcessingEnvironment
 
 /**
@@ -41,7 +42,8 @@ object Context {
     private val logger: AnnotationLogger = AnnotationLogger()
     @JvmStatic
     fun init(processingEnvironment: ProcessingEnvironment,
-             args: CompilerArguments) {
+             args: CompilerArguments
+    ) {
         L.setClient(logger)
         val hasAndroidXBinding = discoverAndroidX(processingEnvironment)
         libTypes = LibTypes(hasAndroidXBinding)
