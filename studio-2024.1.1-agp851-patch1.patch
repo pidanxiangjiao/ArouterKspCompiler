@@ -1,0 +1,870 @@
+Subject: [PATCH] agp851-patch1
+---
+Index: base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/tasks/JacocoTask.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/tasks/JacocoTask.kt b/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/tasks/JacocoTask.kt
+--- a/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/tasks/JacocoTask.kt	(revision f01666f34aeaf70d3e7e176cf25cb599b61277c5)
++++ b/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/tasks/JacocoTask.kt	(date 1749103524260)
+@@ -60,6 +60,9 @@
+ import java.util.zip.ZipEntry
+ import java.util.zip.ZipFile
+ import java.util.zip.ZipOutputStream
++import com.google.common.collect.Sets
++import org.gradle.api.provider.ListProperty
++import org.gradle.api.tasks.Internal
+ 
+ @CacheableTask
+ @BuildAnalyzer(primaryTaskCategory = TaskCategory.TEST)
+@@ -84,6 +87,9 @@
+     @get:OutputDirectory
+     abstract val outputForJars: DirectoryProperty
+ 
++    @get:Internal
++    val jacocoExcludeList = mutableListOf<Pattern>()
++
+     override fun doTaskAction(inputChanges: InputChanges) {
+         processDirectories(inputChanges)
+         processJars(inputChanges)
+@@ -103,7 +109,7 @@
+             Action::class.java
+         )
+         for (change in filesToProcess) {
+-            val action = calculateAction(change.normalizedPath)
++            val action = calculateAction(change.normalizedPath, jacocoExcludeList = jacocoExcludeList)
+             if (action == Action.IGNORE) {
+                 continue
+             }
+@@ -148,6 +154,7 @@
+                         key
+                     )
+                     params.output.set(instrumentedJar)
++                    params.jacocoExcludeList.set(jacocoExcludeList)
+                 }
+             }
+         }
+@@ -269,12 +276,14 @@
+         abstract class Parameters : WorkParameters {
+             abstract val root: Property<File?>
+             abstract val output: Property<File?>
++            abstract val jacocoExcludeList: ListProperty<Pattern>
+         }
+ 
+         override fun execute() {
+             val inputJar = parameters.root.get()
+             logger.info("Instrumenting jar: " + inputJar?.absolutePath)
+             val instrumentedJar = parameters.output.get()
++            val entriesSet = Sets.newConcurrentHashSet<String>()
+             val instrumenter = Instrumenter(OfflineInstrumentationAccessGenerator())
+             try {
+                 ZipOutputStream(
+@@ -285,7 +294,10 @@
+                         while (entries.hasMoreElements()) {
+                             val entry = entries.nextElement()
+                             val entryName = entry.name
+-                            val entryAction = calculateAction(entryName)
++                            if (entriesSet.contains(entryName)) {
++                                continue
++                            }
++                            val entryAction = calculateAction(entryName, jacocoExcludeList = parameters.jacocoExcludeList.get())
+                             if (entryAction == Action.IGNORE) {
+                                 continue
+                             }
+@@ -301,6 +313,7 @@
+                             // constant.
+                             nextEntry.time = - 1L
+                             outputZip.putNextEntry(nextEntry)
++                            entriesSet.add(entryName)
+                             outputZip.write(data)
+                             outputZip.closeEntry()
+                         }
+@@ -329,6 +342,7 @@
+ 
+         override fun configure(task: JacocoTask) {
+             super.configure(task)
++            setJacocoExcludeList(task, creationConfig)
+             task.jacocoAntTaskConfiguration
+                 .from(
+                     JacocoConfigurations.getJacocoAntTaskConfiguration(
+@@ -342,6 +356,16 @@
+                         .projectOptions[BooleanOption.FORCE_JACOCO_OUT_OF_PROCESS]
+                 )
+         }
++
++        fun setJacocoExcludeList(task: JacocoTask, creationConfig: ComponentCreationConfig) {
++            creationConfig?.global?.testCoverage?.excludeList?.let {
++                if (it.isNotEmpty()) {
++                    it.forEach { patternStr ->
++                        task.jacocoExcludeList.add(Pattern.compile(patternStr))
++                    }
++                }
++            }
++        }
+     }
+ 
+     companion object {
+@@ -355,13 +379,22 @@
+         // META-INF/*.kotlin_module files need to be copied to output so they show up
+         // in the intermediate classes jar.
+         private val KOTLIN_MODULE_PATTERN = Pattern.compile("^META-INF/.*\\.kotlin_module$")
+-        fun calculateAction(inputRelativePath: String): Action {
++        fun calculateAction(inputRelativePath: String, jacocoExcludeList: List<Pattern> = emptyList()): Action {
+             // Avoid instrumenting files from these directories as they can cause issues such as
+             // recursive instrumentation.
+             if (inputRelativePath.startsWith("org/jacoco") ||
+                     inputRelativePath.startsWith("org/junit/runner/notification/RunListener")) {
+                 return Action.COPY
+             }
++
++            if (jacocoExcludeList.isNotEmpty()) {
++                for (pattern in jacocoExcludeList) {
++                    if (pattern.matcher(inputRelativePath).matches()) {
++                        return Action.COPY
++                    }
++                }
++            }
++
+             for (pattern in Action.COPY.patterns) {
+                 if (pattern.matcher(inputRelativePath).matches()) {
+                     return Action.COPY
+Index: base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/TaskManager.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/TaskManager.kt b/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/TaskManager.kt
+--- a/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/TaskManager.kt	(revision f01666f34aeaf70d3e7e176cf25cb599b61277c5)
++++ b/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/TaskManager.kt	(date 1750241183454)
+@@ -1140,17 +1140,24 @@
+         initializeAllScope(creationConfig.artifacts)
+ 
+         // New gradle-transform jacoco instrumentation support.
+-        if (creationConfig.codeCoverageEnabled &&
+-            !creationConfig.componentType.isForTesting) {
+-            createJacocoTask(creationConfig)
+-        } else {
++//        if (creationConfig.codeCoverageEnabled &&
++//            !creationConfig.componentType.isForTesting) {
++//            createJacocoTask(creationConfig)
++//        } else {
++//            // When the Jacoco task does not run, republish CLASSES into FINAL_TRANSFORMED_CLASSES
++//            // because this is the artifact that will be used in the following tasks
++//            enumValues<ScopedArtifacts.Scope>().forEach {
++//                creationConfig.artifacts.forScope(it).republish(
++//                    ScopedArtifact.CLASSES, InternalScopedArtifact.FINAL_TRANSFORMED_CLASSES)
++//            }
++//        }
++
+             // When the Jacoco task does not run, republish CLASSES into FINAL_TRANSFORMED_CLASSES
+             // because this is the artifact that will be used in the following tasks
+             enumValues<ScopedArtifacts.Scope>().forEach {
+                 creationConfig.artifacts.forScope(it).republish(
+                     ScopedArtifact.CLASSES, InternalScopedArtifact.FINAL_TRANSFORMED_CLASSES)
+             }
+-        }
+ 
+         enumValues<InternalScopedArtifacts.InternalScope>().forEach {
+             creationConfig.artifacts.forScope(it)
+Index: base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/coverage/JacocoOptions.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/coverage/JacocoOptions.java b/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/coverage/JacocoOptions.java
+--- a/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/coverage/JacocoOptions.java	(revision f01666f34aeaf70d3e7e176cf25cb599b61277c5)
++++ b/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/coverage/JacocoOptions.java	(date 1749095825790)
+@@ -20,6 +20,8 @@
+ import com.android.build.api.dsl.TestCoverage;
+ import javax.inject.Inject;
+ import org.jetbrains.annotations.NotNull;
++import java.util.ArrayList;
++import java.util.List;
+ 
+ public class JacocoOptions implements com.android.build.api.dsl.JacocoOptions, TestCoverage {
+ 
+@@ -28,6 +30,9 @@
+ 
+     private boolean versionSetByUser = false;
+ 
++    private List<String> excludeList = new ArrayList();
++
++
+     @Inject
+     public JacocoOptions() {
+         versionSetByUser = false;
+@@ -62,4 +67,17 @@
+         versionSetByUser = true;
+         this.jacocoVersion = jacocoVersion;
+     }
++
++    @Override
++    public @NotNull List<String> getExcludeList() {
++        return excludeList;
++    }
++
++    @Override
++    public void setExcludeList(@NotNull List<String> excludeList) {
++        if (excludeList != null && !excludeList.isEmpty()) {
++            this.excludeList.addAll(excludeList);
++        }
++
++    }
+ }
+Index: base/build-system/gradle-core/src/main/java/com/android/build/gradle/options/BooleanOption.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/base/build-system/gradle-core/src/main/java/com/android/build/gradle/options/BooleanOption.kt b/base/build-system/gradle-core/src/main/java/com/android/build/gradle/options/BooleanOption.kt
+--- a/base/build-system/gradle-core/src/main/java/com/android/build/gradle/options/BooleanOption.kt	(revision f01666f34aeaf70d3e7e176cf25cb599b61277c5)
++++ b/base/build-system/gradle-core/src/main/java/com/android/build/gradle/options/BooleanOption.kt	(date 1749103932526)
+@@ -36,6 +36,7 @@
+ import com.android.builder.model.PROPERTY_EXTRACT_INSTANT_APK
+ import com.android.builder.model.PROPERTY_INVOKED_FROM_IDE
+ import com.android.builder.model.PROPERTY_REFRESH_EXTERNAL_NATIVE_MODEL
++import com.android.build.gradle.internal.errors.DeprecationReporter
+ 
+ enum class BooleanOption(
+     override val propertyName: String,
+@@ -692,10 +693,18 @@
+             FeatureStage.Enforced(Version.VERSION_8_1)
+     ),
+ 
++//    ENABLE_UNCOMPRESSED_NATIVE_LIBS_IN_BUNDLE(
++//        "android.bundle.enableUncompressedNativeLibs",
++//        true,
++//        FeatureStage.Enforced(Version.VERSION_8_1)
++//    ),
++
+     ENABLE_UNCOMPRESSED_NATIVE_LIBS_IN_BUNDLE(
+         "android.bundle.enableUncompressedNativeLibs",
+         true,
+-        FeatureStage.Enforced(Version.VERSION_8_1)
++        FeatureStage.SoftlyEnforced(
++            DeprecationReporter.DeprecationTarget.ENABLE_UNCOMPRESSED_NATIVE_LIBS_IN_BUNDLE
++        )
+     ),
+ 
+     ENABLE_GLOBAL_SYNTHETICS(
+Index: base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/core/dsl/impl/ApplicationVariantDslInfoImpl.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/core/dsl/impl/ApplicationVariantDslInfoImpl.kt b/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/core/dsl/impl/ApplicationVariantDslInfoImpl.kt
+--- a/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/core/dsl/impl/ApplicationVariantDslInfoImpl.kt	(revision f01666f34aeaf70d3e7e176cf25cb599b61277c5)
++++ b/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/core/dsl/impl/ApplicationVariantDslInfoImpl.kt	(date 1749103749486)
+@@ -68,6 +68,11 @@
+             services.projectOptions[StringOption.PROFILING_MODE]
+         ).isDebuggable ?: applicationBuildType.isDebuggable
+ 
++
++    override val isForceReleaseR8Mode: Boolean
++        get() = applicationBuildType.isForceR8ReleaseMode ?: false
++
++
+     override val isProfileable: Boolean
+         get() {
+             val fromProfilingModeOption = ProfilingMode.getProfilingModeType(
+Index: base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/core/dsl/ApkProducingComponentDslInfo.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/core/dsl/ApkProducingComponentDslInfo.kt b/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/core/dsl/ApkProducingComponentDslInfo.kt
+--- a/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/core/dsl/ApkProducingComponentDslInfo.kt	(revision f01666f34aeaf70d3e7e176cf25cb599b61277c5)
++++ b/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/core/dsl/ApkProducingComponentDslInfo.kt	(date 1749103675433)
+@@ -29,10 +29,12 @@
+     val dexingDslInfo: DexingDslInfo
+ 
+     val isDebuggable: Boolean
+-
+     /**
+      * Holds all SigningConfig information from the DSL and/or [ProjectOptions].
+      * Will resolve config as soon as all changes been done and variant is created.
+      */
+     val signingConfigResolver: SigningConfigResolver?
++
++    val isForceReleaseR8Mode: Boolean
++        get() = false
+ }
+Index: base/sdklib/BUILD
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/base/sdklib/BUILD b/base/sdklib/BUILD
+--- a/base/sdklib/BUILD	(revision f01666f34aeaf70d3e7e176cf25cb599b61277c5)
++++ b/base/sdklib/BUILD	(date 1749108733114)
+@@ -6,7 +6,7 @@
+ load(
+     "//tools/base/common:version.bzl",
+     "BASE_VERSION",
+-    "DEV_COMMANDLINE_TOOLS_VERSION",
++#    "DEV_COMMANDLINE_TOOLS_VERSION",
+     "RELEASE_COMMANDLINE_TOOLS_VERSION",
+ )
+ load("//tools/base/bazel:expand_template.bzl", "expand_template")
+@@ -215,7 +215,7 @@
+             "{VERSION}": RELEASE_COMMANDLINE_TOOLS_VERSION,
+         },
+         "//conditions:default": {
+-            "{VERSION}": DEV_COMMANDLINE_TOOLS_VERSION,
++            "{VERSION}": RELEASE_COMMANDLINE_TOOLS_VERSION,
+         },
+     }),
+     template = "tools_source.properties",
+Index: base/common/agp-version/BUILD
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/base/common/agp-version/BUILD b/base/common/agp-version/BUILD
+--- a/base/common/agp-version/BUILD	(revision f01666f34aeaf70d3e7e176cf25cb599b61277c5)
++++ b/base/common/agp-version/BUILD	(date 1749108718440)
+@@ -1,7 +1,7 @@
+ load(
+     "//tools/base/common:version.bzl",
+-    "DEV_BASE_VERSION",
+-    "DEV_BUILD_VERSION",
++#    "DEV_BASE_VERSION",
++#    "DEV_BUILD_VERSION",
+     "RELEASE_BASE_VERSION",
+     "RELEASE_BUILD_VERSION",
+ )
+@@ -37,8 +37,8 @@
+             "-Dtest.version.buildVersion=" + RELEASE_BUILD_VERSION,
+         ],
+         "//conditions:default": [
+-            "-Dtest.version.baseVersion=" + DEV_BASE_VERSION,
+-            "-Dtest.version.buildVersion=" + DEV_BUILD_VERSION,
++            "-Dtest.version.baseVersion=" + RELEASE_BASE_VERSION,
++            "-Dtest.version.buildVersion=" + RELEASE_BUILD_VERSION,
+         ],
+     }),
+     test_class = "com.android.VersionTest",
+Index: base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/errors/DeprecationReporter.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/errors/DeprecationReporter.kt b/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/errors/DeprecationReporter.kt
+--- a/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/errors/DeprecationReporter.kt	(revision f01666f34aeaf70d3e7e176cf25cb599b61277c5)
++++ b/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/errors/DeprecationReporter.kt	(date 1749103993691)
+@@ -85,6 +85,21 @@
+             "https://developer.android.com/studio/build/maven-publish-plugin for more information."
+         ),
+ 
++        //TODO
++        ENABLE_UNCOMPRESSED_NATIVE_LIBS_IN_BUNDLE(
++            Version.VERSION_8_0,
++            """
++                You can add the following to your build.gradle instead:
++                android {
++                    packagingOptions {
++                        jniLibs {
++                            useLegacyPackaging = true
++                        }
++                    }
++                }
++            """.trimIndent()
++        ),
++
+         TRANSFORM_API(
+             Version.VERSION_8_0,
+             """
+Index: base/common/version.bzl
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/base/common/version.bzl b/base/common/version.bzl
+--- a/base/common/version.bzl	(revision f01666f34aeaf70d3e7e176cf25cb599b61277c5)
++++ b/base/common/version.bzl	(date 1749108941138)
+@@ -9,22 +9,22 @@
+ LAST_STABLE_BUILD_VERSION = _LAST_STABLE_BUILD_VERSION
+ 
+ RELEASE_BASE_VERSION = _RELEASE_BASE_VERSION
+-DEV_BASE_VERSION = RELEASE_BASE_VERSION.split("-")[0] + "-dev"
++#DEV_BASE_VERSION = RELEASE_BASE_VERSION.split("-")[0] + "-dev"
+ BASE_VERSION = select({
+     "//tools/base/bazel:release": RELEASE_BASE_VERSION,
+-    "//conditions:default": DEV_BASE_VERSION,
++    "//conditions:default": RELEASE_BASE_VERSION,
+ })
+ 
+ RELEASE_BUILD_VERSION = _RELEASE_BUILD_VERSION
+-DEV_BUILD_VERSION = RELEASE_BUILD_VERSION.split("-")[0] + "-dev"
++#DEV_BUILD_VERSION = RELEASE_BUILD_VERSION.split("-")[0] + "-dev"
+ BUILD_VERSION = select({
+     "//tools/base/bazel:release": RELEASE_BUILD_VERSION,
+-    "//conditions:default": DEV_BUILD_VERSION,
++    "//conditions:default": RELEASE_BUILD_VERSION,
+ })
+ 
+ RELEASE_COMMANDLINE_TOOLS_VERSION = _RELEASE_COMMANDLINE_TOOLS_VERSION
+-DEV_COMMANDLINE_TOOLS_VERSION = RELEASE_COMMANDLINE_TOOLS_VERSION.split("-")[0] + "-dev"
++#DEV_COMMANDLINE_TOOLS_VERSION = RELEASE_COMMANDLINE_TOOLS_VERSION.split("-")[0] + "-dev"
+ COMMANDLINE_TOOLS_VERSION = select({
+     "//tools/base/bazel:release": RELEASE_COMMANDLINE_TOOLS_VERSION,
+-    "//conditions:default": DEV_COMMANDLINE_TOOLS_VERSION,
++    "//conditions:default": RELEASE_COMMANDLINE_TOOLS_VERSION,
+ })
+Index: base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/core/dsl/KmpComponentDslInfo.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/core/dsl/KmpComponentDslInfo.kt b/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/core/dsl/KmpComponentDslInfo.kt
+--- a/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/core/dsl/KmpComponentDslInfo.kt	(revision f01666f34aeaf70d3e7e176cf25cb599b61277c5)
++++ b/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/core/dsl/KmpComponentDslInfo.kt	(date 1749104326564)
+@@ -40,4 +40,9 @@
+         }
+ 
+     val withJava: Boolean
++
++    override val isAndroidTestCoverageEnabled: Boolean
++        get() {
++            throw IllegalAccessException("Not supported, Mark by Tim")
++        }
+ }
+Index: base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/core/dsl/ComponentDslInfo.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/core/dsl/ComponentDslInfo.kt b/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/core/dsl/ComponentDslInfo.kt
+--- a/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/core/dsl/ComponentDslInfo.kt	(revision f01666f34aeaf70d3e7e176cf25cb599b61277c5)
++++ b/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/core/dsl/ComponentDslInfo.kt	(date 1749104244294)
+@@ -97,4 +97,6 @@
+     val androidResourcesDsl: AndroidResourcesDslInfo?
+ 
+     val privacySandboxDsl: PrivacySandboxDslInfo
++
++    val isAndroidTestCoverageEnabled: Boolean
+ }
+Index: base/bazel/common.bazelrc
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/base/bazel/common.bazelrc b/base/bazel/common.bazelrc
+--- a/base/bazel/common.bazelrc	(revision f01666f34aeaf70d3e7e176cf25cb599b61277c5)
++++ b/base/bazel/common.bazelrc	(date 1749094465088)
+@@ -8,6 +8,10 @@
+ # Remote Build Execution requires a strong hash function, such as SHA256.
+ startup --host_jvm_args=-Dbazel.DigestFunction=SHA256
+ 
++#startup --host_jvm_args="-Djavax.net.debug=ssl"
++#startup --host_jvm_args=-Djavax.net.ssl.trustStore=/Users/.sdkman/candidates/java/17.0.13-zulu/zulu-17.jdk/Contents/Home/lib/security/cacerts \
++#        --host_jvm_args=-Djavax.net.ssl.trustStorePassword=changeit
++
+ # Building runfile trees is unnecessary, unless executing binaries in bazel-bin/ manually (use 'bazel run' instead)
+ # See: https://github.com/bazelbuild/bazel/commit/03246077f948f2790a83520e7dccc2625650e6df
+ build --nobuild_runfile_links
+Index: data-binding/BUILD.bazel
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/data-binding/BUILD.bazel b/data-binding/BUILD.bazel
+--- a/data-binding/BUILD.bazel	(revision bdb3cf96d30ea03d389ac3a9455ea443d4955800)
++++ b/data-binding/BUILD.bazel	(date 1749108783872)
+@@ -5,7 +5,8 @@
+ load("//tools/base/bazel:kotlin.bzl", "kotlin_test")
+ load("//tools/base/bazel:maven.bzl", "maven_library", "maven_repository")
+ load("//tools/base/bazel:utils.bzl", "fileset", "java_jarjar", "merged_zip")
+-load("//tools/base/common:version.bzl", "BUILD_VERSION", "DEV_BUILD_VERSION", "RELEASE_BUILD_VERSION")
++#load("//tools/base/common:version.bzl", "BUILD_VERSION", "DEV_BUILD_VERSION", "RELEASE_BUILD_VERSION")
++load("//tools/base/common:version.bzl", "BUILD_VERSION", "RELEASE_BUILD_VERSION")
+ 
+ exports_files(["databinding.properties"])
+ 
+@@ -158,7 +159,7 @@
+             "{BUILD_VERSION}": RELEASE_BUILD_VERSION,
+         },
+         "//conditions:default": {
+-            "{BUILD_VERSION}": DEV_BUILD_VERSION,
++            "{BUILD_VERSION}": RELEASE_BUILD_VERSION,
+         },
+     }),
+     template = "runtime_version.properties.template",
+@@ -371,7 +372,7 @@
+         "version": RELEASE_BUILD_VERSION,
+     },
+     "//conditions:default": {
+-        "version": DEV_BUILD_VERSION,
++        "version": RELEASE_BUILD_VERSION,
+     },
+ })
+ 
+Index: base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/core/dsl/impl/ComponentDslInfoImpl.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/core/dsl/impl/ComponentDslInfoImpl.kt b/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/core/dsl/impl/ComponentDslInfoImpl.kt
+--- a/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/core/dsl/impl/ComponentDslInfoImpl.kt	(revision f01666f34aeaf70d3e7e176cf25cb599b61277c5)
++++ b/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/core/dsl/impl/ComponentDslInfoImpl.kt	(date 1749104288350)
+@@ -156,4 +156,7 @@
+             )
+         )
+ 
++    override val isAndroidTestCoverageEnabled: Boolean
++        get() = buildTypeObj.enableAndroidTestCoverage || buildTypeObj.isTestCoverageEnabled
++
+ }
+Index: base/bazel/test/gradle/BUILD
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/base/bazel/test/gradle/BUILD b/base/bazel/test/gradle/BUILD
+--- a/base/bazel/test/gradle/BUILD	(revision f01666f34aeaf70d3e7e176cf25cb599b61277c5)
++++ b/base/bazel/test/gradle/BUILD	(date 1749108542369)
+@@ -1,4 +1,5 @@
+-load("//tools/base/common:version.bzl", "DEV_BUILD_VERSION", "RELEASE_BUILD_VERSION")
++#load("//tools/base/common:version.bzl", "DEV_BUILD_VERSION", "RELEASE_BUILD_VERSION")
++load("//tools/base/common:version.bzl", "RELEASE_BUILD_VERSION")
+ load("//tools/base/bazel:gradle.bzl", "gradle_build")
+ load("//tools/base/bazel:maven.bzl", "maven_repository")
+ 
+@@ -13,7 +14,7 @@
+     ] + glob(["library/**"]),
+     gradle_properties = select({
+         "//tools/base/bazel:release": {"androidGradlePluginVersion": RELEASE_BUILD_VERSION},
+-        "//conditions:default": {"androidGradlePluginVersion": DEV_BUILD_VERSION},
++        "//conditions:default": {"androidGradlePluginVersion": RELEASE_BUILD_VERSION},
+     }),
+     output_file = "outputs/aar/library-release.aar",
+     output_file_source = "outputs/aar/library-release.aar",
+Index: base/build-system/gradle-api/src/main/java/com/android/build/api/dsl/TestCoverage.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/base/build-system/gradle-api/src/main/java/com/android/build/api/dsl/TestCoverage.kt b/base/build-system/gradle-api/src/main/java/com/android/build/api/dsl/TestCoverage.kt
+--- a/base/build-system/gradle-api/src/main/java/com/android/build/api/dsl/TestCoverage.kt	(revision f01666f34aeaf70d3e7e176cf25cb599b61277c5)
++++ b/base/build-system/gradle-api/src/main/java/com/android/build/api/dsl/TestCoverage.kt	(date 1749095726554)
+@@ -22,4 +22,7 @@
+      * The version of JaCoCo to use.
+      */
+     var jacocoVersion: String
++
++    var excludeList: List<String>
++
+ }
+Index: base/build-system/gradle-api/src/main/java/com/android/build/api/dsl/BuildType.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/base/build-system/gradle-api/src/main/java/com/android/build/api/dsl/BuildType.kt b/base/build-system/gradle-api/src/main/java/com/android/build/api/dsl/BuildType.kt
+--- a/base/build-system/gradle-api/src/main/java/com/android/build/api/dsl/BuildType.kt	(revision f01666f34aeaf70d3e7e176cf25cb599b61277c5)
++++ b/base/build-system/gradle-api/src/main/java/com/android/build/api/dsl/BuildType.kt	(date 1749104139855)
+@@ -142,6 +142,10 @@
+      */
+     var isMinifyEnabled: Boolean
+ 
++    @get:Incubating
++    @set:Incubating
++    var isForceR8ReleaseMode: Boolean
++
+     /**
+      * Specifies whether to enable shrinking resources for this build type.
+      *
+Index: base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/tasks/R8Task.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/tasks/R8Task.kt b/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/tasks/R8Task.kt
+--- a/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/tasks/R8Task.kt	(revision f01666f34aeaf70d3e7e176cf25cb599b61277c5)
++++ b/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/tasks/R8Task.kt	(date 1749104615134)
+@@ -125,6 +125,9 @@
+     @get:Input
+     abstract val debuggable: Property<Boolean>
+ 
++    @get:Input
++    abstract val forceR8ReleaseMode: Property<Boolean>
++
+     @get:Input
+     abstract val disableTreeShaking: Property<Boolean>
+ 
+@@ -456,6 +459,7 @@
+ 
+             task.debuggable
+                 .setDisallowChanges(creationConfig.debuggable)
++            task.forceR8ReleaseMode.setDisallowChanges(creationConfig.forceR8ReleaseMode)
+             task.disableTreeShaking.set(disableTreeShaking)
+             task.disableMinification.set(disableMinification)
+             task.errorFormatMode.set(SyncOptions.getErrorFormatMode(creationConfig.services.projectOptions))
+@@ -613,6 +617,7 @@
+             it.bootClasspath.from(bootClasspath.toList())
+             it.minSdkVersion.set(minSdkVersion.get())
+             it.debuggable.set(debuggable.get())
++            it.forceR8ReleaseMode.set(forceR8ReleaseMode.get())
+             it.disableTreeShaking.set(disableTreeShaking.get())
+             it.enableDesugaring.set(enableDesugaring.get())
+             it.disableMinification.set(disableMinification.get())
+@@ -693,6 +698,7 @@
+             bootClasspath: List<File>,
+             minSdkVersion: Int,
+             isDebuggable: Boolean,
++            isForceR8ReleaseMode: Boolean,
+             enableDesugaring: Boolean,
+             disableTreeShaking: Boolean,
+             disableMinification: Boolean,
+@@ -775,7 +781,8 @@
+                 disableDesugaring = !enableDesugaring,
+                 disableMinification = disableMinification,
+                 r8OutputType = r8OutputType,
+-            )
++                isForceR8ReleaseMode = isForceR8ReleaseMode,
++                )
+ 
+             // When invoking R8 we filter out missing files. E.g. javac output may not exist if
+             // there are no Java sources. See b/151605314 for details.
+@@ -819,6 +826,7 @@
+             abstract val bootClasspath: ConfigurableFileCollection
+             abstract val minSdkVersion: Property<Int>
+             abstract val debuggable: Property<Boolean>
++            abstract val forceR8ReleaseMode: Property<Boolean>
+             abstract val disableTreeShaking: Property<Boolean>
+             abstract val enableDesugaring: Property<Boolean>
+             abstract val disableMinification: Property<Boolean>
+@@ -857,6 +865,7 @@
+                 parameters.bootClasspath.files.toList(),
+                 parameters.minSdkVersion.get(),
+                 parameters.debuggable.get(),
++                parameters.forceR8ReleaseMode.get(),
+                 parameters.enableDesugaring.get(),
+                 parameters.disableTreeShaking.get(),
+                 parameters.disableMinification.get(),
+Index: base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/component/ComponentCreationConfig.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/component/ComponentCreationConfig.kt b/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/component/ComponentCreationConfig.kt
+--- a/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/component/ComponentCreationConfig.kt	(revision f01666f34aeaf70d3e7e176cf25cb599b61277c5)
++++ b/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/component/ComponentCreationConfig.kt	(date 1749104191874)
+@@ -73,7 +73,8 @@
+     val namespace: Provider<String>
+     val debuggable: Boolean
+     val minSdk: AndroidVersion
+-
++    val forceR8ReleaseMode: Boolean
++        get() = false
+     val useBuiltInKotlinSupport: Boolean
+ 
+     // ---------------------------------------------------------------------------------------------
+Index: buildSrc/base/gradle.properties
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>ISO-8859-1
+===================================================================
+diff --git a/buildSrc/base/gradle.properties b/buildSrc/base/gradle.properties
+--- a/buildSrc/base/gradle.properties	(revision dd064eb719d1bb5c2f8edecb701bb9098891f9dc)
++++ b/buildSrc/base/gradle.properties	(date 1749108998991)
+@@ -10,4 +10,4 @@
+ # Don't use "fail" until this is fixed: https://youtrack.jetbrains.com/issue/IDEA-272594
+ org.gradle.warning.mode=all
+ # Disable configuration cache due to b/282203447
+-org.gradle.unsafe.configuration-cache=false
+\ No newline at end of file
++org.gradle.unsafe.configuration-cache=false
+Index: base/build-system/builder/src/main/java/com/android/builder/dexing/r8Tool.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/base/build-system/builder/src/main/java/com/android/builder/dexing/r8Tool.kt b/base/build-system/builder/src/main/java/com/android/builder/dexing/r8Tool.kt
+--- a/base/build-system/builder/src/main/java/com/android/builder/dexing/r8Tool.kt	(revision f01666f34aeaf70d3e7e176cf25cb599b61277c5)
++++ b/base/build-system/builder/src/main/java/com/android/builder/dexing/r8Tool.kt	(date 1749104699024)
+@@ -193,7 +193,7 @@
+     )
+ 
+     val compilationMode =
+-        if (toolConfig.isDebuggable) CompilationMode.DEBUG else CompilationMode.RELEASE
++        if (toolConfig.isDebuggable && !toolConfig.isForceR8ReleaseMode) CompilationMode.DEBUG else CompilationMode.RELEASE
+ 
+     val dataResourceConsumer = JavaResourcesConsumer(javaResourcesJar)
+     val programConsumer =
+@@ -439,6 +439,7 @@
+     val disableDesugaring: Boolean,
+     val disableMinification: Boolean,
+     val r8OutputType: R8OutputType,
++    val isForceR8ReleaseMode: Boolean,
+ )
+ 
+ private class ProGuardRulesFilteringVisitor(
+Index: gradle-recipes/recipes.bzl
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/gradle-recipes/recipes.bzl b/gradle-recipes/recipes.bzl
+--- a/gradle-recipes/recipes.bzl	(revision 0aec57ba2224fe9c4e2a5184d18202014476ba8d)
++++ b/gradle-recipes/recipes.bzl	(date 1749108865572)
+@@ -1,4 +1,5 @@
+-load("//tools/base/common:version.bzl", "DEV_BUILD_VERSION", "RELEASE_BUILD_VERSION")
++#load("//tools/base/common:version.bzl", "DEV_BUILD_VERSION", "RELEASE_BUILD_VERSION")
++load("//tools/base/common:version.bzl", "RELEASE_BUILD_VERSION")
+ 
+ def recipe_test(
+         name,
+@@ -116,7 +117,7 @@
+                         (["-Djdk_version=" + str(test_scenarios[agp_version].get("jdk_version"))] if test_scenarios[agp_version].get("jdk_version") else []) +
+                         (select({
+                             "//tools/base/bazel:release": ["-Dagp_version=" + RELEASE_BUILD_VERSION],
+-                            "//conditions:default": ["-Dagp_version=" + DEV_BUILD_VERSION],
++                            "//conditions:default": ["-Dagp_version=" + RELEASE_BUILD_VERSION],
+                         }) if agp_version == "ToT" else ["-Dagp_version=" + agp_version]),
+             data = native.glob(
+                 [
+Index: base/build-system/gradle-core/src/main/java/com/android/build/api/variant/impl/ApplicationVariantImpl.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/base/build-system/gradle-core/src/main/java/com/android/build/api/variant/impl/ApplicationVariantImpl.kt b/base/build-system/gradle-core/src/main/java/com/android/build/api/variant/impl/ApplicationVariantImpl.kt
+--- a/base/build-system/gradle-core/src/main/java/com/android/build/api/variant/impl/ApplicationVariantImpl.kt	(revision f01666f34aeaf70d3e7e176cf25cb599b61277c5)
++++ b/base/build-system/gradle-core/src/main/java/com/android/build/api/variant/impl/ApplicationVariantImpl.kt	(date 1749104910634)
+@@ -147,6 +147,10 @@
+         variantBuilder.targetSdkVersion
+     }
+ 
++    // Apps include the jacoco agent if test coverage is enabled
++//    override val packageJacocoRuntime: Boolean
++//        get() = dslInfo.isAndroidTestCoverageEnabled
++
+     override val isMinifyEnabled: Boolean
+         get() = variantBuilder.isMinifyEnabled
+ 
+@@ -205,6 +209,9 @@
+     override val needAssetPackTasks: Boolean
+         get() = global.assetPacks.isNotEmpty()
+ 
++    override val forceR8ReleaseMode: Boolean = dslInfo.isForceReleaseR8Mode
++
++
+     override val debuggable: Boolean
+         get() = dslInfo.isDebuggable
+     override val profileable: Boolean
+@@ -307,7 +314,7 @@
+ 
+     // Apps include the jacoco agent if test coverage is enabled
+     override val packageJacocoRuntime: Boolean
+-        get() = codeCoverageEnabled
++        get() = codeCoverageEnabled || dslInfo.isAndroidTestCoverageEnabled
+ 
+     override val isWearAppUnbundled: Boolean?
+         get() = dslInfo.isWearAppUnbundled
+Index: base/common/agp-version/com/android/BUILD
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/base/common/agp-version/com/android/BUILD b/base/common/agp-version/com/android/BUILD
+--- a/base/common/agp-version/com/android/BUILD	(revision f01666f34aeaf70d3e7e176cf25cb599b61277c5)
++++ b/base/common/agp-version/com/android/BUILD	(date 1749108663384)
+@@ -5,9 +5,9 @@
+ )
+ load(
+     "//tools/base/common:version.bzl",
+-    "DEV_BASE_VERSION",
+-    "DEV_BUILD_VERSION",
+-    "DEV_COMMANDLINE_TOOLS_VERSION",
++#    "DEV_BASE_VERSION",
++#    "DEV_BUILD_VERSION",
++#    "DEV_COMMANDLINE_TOOLS_VERSION",
+     "RELEASE_BASE_VERSION",
+     "RELEASE_BUILD_VERSION",
+     "RELEASE_COMMANDLINE_TOOLS_VERSION",
+@@ -24,10 +24,10 @@
+             "{LAST_STABLE_BUILD_VERSION}": LAST_STABLE_BUILD_VERSION,
+         },
+         "//conditions:default": {
+-            "{BUILD_VERSION}": DEV_BUILD_VERSION,
+-            "{BASE_VERSION}": DEV_BASE_VERSION,
+-            "{COMMANDLINE_TOOLS_VERSION}": DEV_COMMANDLINE_TOOLS_VERSION,
+-            "{LAST_STABLE_BUILD_VERSION}": LAST_STABLE_BUILD_VERSION,
++           "{BUILD_VERSION}": RELEASE_BUILD_VERSION,
++           "{BASE_VERSION}": RELEASE_BASE_VERSION,
++           "{COMMANDLINE_TOOLS_VERSION}": RELEASE_COMMANDLINE_TOOLS_VERSION,
++           "{LAST_STABLE_BUILD_VERSION}": LAST_STABLE_BUILD_VERSION,
+         },
+     }),
+     template = "version.properties.template",
+Index: buildSrc/base/version.gradle
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/buildSrc/base/version.gradle b/buildSrc/base/version.gradle
+--- a/buildSrc/base/version.gradle	(revision dd064eb719d1bb5c2f8edecb701bb9098891f9dc)
++++ b/buildSrc/base/version.gradle	(date 1749109053738)
+@@ -16,6 +16,13 @@
+ 
+ String releaseProperty = project.providers.gradleProperty("release").getOrElse("false")
+ boolean release = releaseProperty.equalsIgnoreCase("true")
++//TODO
++release=true
++if (release) {
++    println("Release mode enabled")
++} else {
++    println("Debug mode")
++}
+ if (!release && !releaseProperty.equalsIgnoreCase("false")) throw new IllegalStateException("Expected release property to be true or false, but was '$releaseProperty'")
+ 
+ String releaseBaseVersion = properties.getProperty('BASE_VERSION') - '"' - '"'
+Index: base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/tasks/PackageBundleTask.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/tasks/PackageBundleTask.kt b/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/tasks/PackageBundleTask.kt
+--- a/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/tasks/PackageBundleTask.kt	(revision f01666f34aeaf70d3e7e176cf25cb599b61277c5)
++++ b/base/build-system/gradle-core/src/main/java/com/android/build/gradle/internal/tasks/PackageBundleTask.kt	(date 1749104428290)
+@@ -625,6 +625,11 @@
+             task.compressNativeLibs.set(
+                 componentProperties.packaging.jniLibs.useLegacyPackagingFromBundle
+             )
++            // TODO(b/132103049, b/174695257) (fix) Deprecate the BooleanOption with instructions to use
++            //  the DSL instead.
++            if (!creationConfig.services.projectOptions[BooleanOption.ENABLE_UNCOMPRESSED_NATIVE_LIBS_IN_BUNDLE]) {
++                task.compressNativeLibs.set(true)
++            }
+             task.compressNativeLibs.disallowChanges()
+             task.pageSize.set(getPageSize(creationConfig))
+ 
+Index: base/build-system/aapt2/aapt2_versions.bzl
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/base/build-system/aapt2/aapt2_versions.bzl b/base/build-system/aapt2/aapt2_versions.bzl
+--- a/base/build-system/aapt2/aapt2_versions.bzl	(revision f01666f34aeaf70d3e7e176cf25cb599b61277c5)
++++ b/base/build-system/aapt2/aapt2_versions.bzl	(date 1749108490995)
+@@ -1,4 +1,5 @@
+-load("//tools/base/common:version.bzl", "DEV_BUILD_VERSION", "RELEASE_BUILD_VERSION")
++#load("//tools/base/common:version.bzl", "DEV_BUILD_VERSION", "RELEASE_BUILD_VERSION")
++load("//tools/base/common:version.bzl", "RELEASE_BUILD_VERSION")
+ load("//prebuilts/tools/common/aapt:aapt2_version.bzl", AAPT2_BUILD = "AAPT2_VERSION")
+ 
+ # TODO(b/262365256) restrict this visibility
+@@ -7,9 +8,9 @@
+ #    "//tools/base/build-system/aapt2-proto",
+ #])
+ 
+-DEV_AAPT2_VERSION = DEV_BUILD_VERSION + "-" + AAPT2_BUILD
++#DEV_AAPT2_VERSION = DEV_BUILD_VERSION + "-" + AAPT2_BUILD
+ RELEASE_AAPT2_VERSION = RELEASE_BUILD_VERSION + "-" + AAPT2_BUILD
+ AAPT2_VERSION = select({
+     "//tools/base/bazel:release": RELEASE_AAPT2_VERSION,
+-    "//conditions:default": DEV_AAPT2_VERSION,
++    "//conditions:default": RELEASE_AAPT2_VERSION,
+ })
