@@ -13,11 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package android.databinding2.processor;
+package android.databinding.annotationprocessor;
 
 import android.databinding.tool.BindingAdapterCompat;
 import android.databinding.tool.BindingMethodsCompat;
-import android.databinding2.tool.CompilerArguments;
+import android.databinding.tool.CompilerArguments;
 import android.databinding.tool.InverseBindingAdapterCompat;
 import android.databinding.tool.InverseBindingMethodsCompat;
 import android.databinding.tool.InverseMethodCompat;

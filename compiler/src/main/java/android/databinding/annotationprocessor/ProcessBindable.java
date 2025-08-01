@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-package android.databinding2.processor;
+package android.databinding.annotationprocessor;
 
-import android.databinding2.tool.CompilerArguments;
+import android.databinding.tool.CompilerArguments;
 import android.databinding.tool.CompilerChef.BindableHolder;
 import android.databinding.tool.LibTypes;
 import android.databinding.tool.reflection.ModelAnalyzer;

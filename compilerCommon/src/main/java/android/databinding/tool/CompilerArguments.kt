@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package android.databinding2.tool
+package android.databinding.tool
 
 import android.databinding.tool.util.Preconditions
 import com.google.common.base.Joiner

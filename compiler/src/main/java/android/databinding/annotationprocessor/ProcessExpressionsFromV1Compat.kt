@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-package android.databinding2.processor
+package android.databinding.annotationprocessor
 
 import android.databinding.tool.CompilerChef
-import android.databinding2.tool.CompilerArguments
+import android.databinding.tool.CompilerArguments
 import android.databinding.tool.reflection.ModelAnalyzer
 import android.databinding.tool.store.ResourceBundle
 import android.databinding.tool.writer.BindingMapperWriterV2

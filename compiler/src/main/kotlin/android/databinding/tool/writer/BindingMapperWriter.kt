@@ -13,8 +13,8 @@
 
 package android.databinding.tool.writer
 
-import android.databinding2.processor.BindableBag
-import android.databinding2.tool.CompilerArguments
+import android.databinding.annotationprocessor.BindableBag
+import android.databinding.tool.CompilerArguments
 import android.databinding.tool.LayoutBinder
 import android.databinding.tool.LibTypes
 

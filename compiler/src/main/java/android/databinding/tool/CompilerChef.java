@@ -13,7 +13,7 @@
 
 package android.databinding.tool;
 
-import android.databinding2.processor.BindableBag;
+import android.databinding.annotationprocessor.BindableBag;
 import android.databinding.tool.processing.Scope;
 import android.databinding.tool.processing.ScopedException;
 import android.databinding.tool.reflection.InjectedClass;
@@ -27,7 +27,6 @@ import android.databinding.tool.writer.BindingMapperWriter;
 import android.databinding.tool.writer.BindingMapperWriterV2;
 import android.databinding.tool.writer.JavaFileWriter;
 import android.databinding.tool.writer.MergedBindingMapperWriter;
-import android.databinding2.tool.CompilerArguments;
 
 import com.android.annotations.NonNull;
 import com.android.annotations.Nullable;

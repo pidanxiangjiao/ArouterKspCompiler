@@ -15,8 +15,8 @@
  */
 package android.databinding.tool.util
 
-import android.databinding2.processor.ProcessExpressions
-import android.databinding2.tool.CompilerArguments
+import android.databinding.annotationprocessor.ProcessExpressions
+import android.databinding.tool.CompilerArguments
 import android.databinding.tool.Context
 import com.google.gson.GsonBuilder
 import org.apache.commons.io.FileUtils

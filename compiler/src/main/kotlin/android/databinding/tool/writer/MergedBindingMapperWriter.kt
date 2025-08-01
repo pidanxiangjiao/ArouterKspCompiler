@@ -16,7 +16,7 @@
 
 package android.databinding.tool.writer
 
-import android.databinding2.tool.CompilerArguments
+import android.databinding.tool.CompilerArguments
 import android.databinding.tool.LibTypes
 import android.databinding.tool.ext.N
 import android.databinding.tool.ext.S

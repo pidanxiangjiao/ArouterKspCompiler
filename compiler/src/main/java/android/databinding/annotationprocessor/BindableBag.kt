@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-package android.databinding2.processor
+package android.databinding.annotationprocessor
 
-import android.databinding2.processor.ProcessBindable.Intermediate
-import android.databinding2.tool.CompilerArguments
+import android.databinding.annotationprocessor.ProcessBindable.Intermediate
+import android.databinding.tool.CompilerArguments
 import android.databinding.tool.Context
 import android.databinding.tool.DataBindingBuilder
 import android.databinding.tool.FeaturePackageInfo

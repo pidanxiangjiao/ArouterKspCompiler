@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-package android.databinding2.processor;
+package android.databinding.annotationprocessor;
 
 import android.databinding.tool.CompilerChef;
-import android.databinding2.tool.CompilerArguments;
+import android.databinding.tool.CompilerArguments;
 import android.databinding.tool.LayoutXmlProcessor;
 import android.databinding.tool.processing.Scope;
 import android.databinding.tool.processing.ScopedException;
