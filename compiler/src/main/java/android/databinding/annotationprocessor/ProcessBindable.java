@@ -26,6 +26,10 @@ import android.databinding.tool.util.LoggedErrorException;
 import android.databinding.tool.util.Preconditions;
 import android.databinding.tool.writer.BRWriter;
 import android.databinding.tool.writer.JavaFileWriter;
+
+import com.google.devtools.ksp.processing.Resolver;
+import com.google.devtools.ksp.processing.SymbolProcessorEnvironment;
+
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -43,9 +47,14 @@ import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 
 // binding app info and library info are necessary to trigger this.
-public class ProcessBindable extends ProcessDataBinding.ProcessingStep implements BindableHolder {
+public class ProcessBindable extends ProcessingStep implements BindableHolder {
     private Intermediate mProperties;
     private HashMap<String, HashSet<String>> mLayoutVariables = new HashMap<>();
+
+    @Override
+    public boolean onHandleKspStep(Resolver roundEnvironment, SymbolProcessorEnvironment processingEnvironment, CompilerArguments args) {
+        return false;
+    }
 
     @Override
     public boolean onHandleStep(RoundEnvironment roundEnv, ProcessingEnvironment processingEnv,

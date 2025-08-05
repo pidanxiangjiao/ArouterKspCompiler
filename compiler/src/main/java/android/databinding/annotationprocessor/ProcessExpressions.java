@@ -34,6 +34,8 @@ import android.databinding.tool.writer.BindingMapperWriter;
 import com.android.annotations.NonNull;
 import com.android.annotations.Nullable;
 import com.google.common.base.Joiner;
+import com.google.devtools.ksp.processing.Resolver;
+import com.google.devtools.ksp.processing.SymbolProcessorEnvironment;
 
 import org.apache.commons.io.Charsets;
 import org.apache.commons.io.FileUtils;
@@ -58,8 +60,13 @@ import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
 import javax.xml.bind.JAXBException;
 
-public class ProcessExpressions extends ProcessDataBinding.ProcessingStep {
+public class ProcessExpressions extends ProcessingStep {
     public ProcessExpressions() {
+    }
+
+    @Override
+    public boolean onHandleKspStep(Resolver roundEnvironment, SymbolProcessorEnvironment processingEnvironment, CompilerArguments args) {
+        return false;
     }
 
     @Override

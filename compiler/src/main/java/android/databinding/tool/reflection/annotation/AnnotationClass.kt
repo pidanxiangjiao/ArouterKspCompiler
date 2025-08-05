@@ -31,7 +31,7 @@ import javax.lang.model.util.Types
  * This is the implementation of ModelClass for the annotation
  * processor. It relies on AnnotationAnalyzer.
  */
-class AnnotationClass(
+public class AnnotationClass(
         @JvmField
         val typeMirror: TypeMirror
 ) : ModelClass() {

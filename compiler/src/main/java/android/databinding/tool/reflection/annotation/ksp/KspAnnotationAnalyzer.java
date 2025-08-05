@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package android.databinding.tool.reflection.annotation;
+package android.databinding.tool.reflection.annotation.ksp;
 
 import android.databinding.tool.LibTypes;
 import android.databinding.tool.reflection.ImportBag;
@@ -21,135 +21,125 @@ import android.databinding.tool.reflection.ModelAnalyzer;
 import android.databinding.tool.reflection.ModelClass;
 import android.databinding.tool.reflection.TypeUtil;
 import android.databinding.tool.util.L;
-import com.google.auto.common.MoreTypes;
+
 import com.google.devtools.ksp.processing.Resolver;
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment;
+import com.google.devtools.ksp.symbol.KSClassDeclaration;
+import com.google.devtools.ksp.symbol.KSType;
+import com.google.devtools.ksp.symbol.KSTypeArgument;
+import com.google.devtools.ksp.symbol.Variance;
 
-import javax.annotation.processing.ProcessingEnvironment;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.DeclaredType;
-import javax.lang.model.type.TypeKind;
-import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.Elements;
-import javax.lang.model.util.Types;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
-public class AnnotationAnalyzer extends ModelAnalyzer {
 
-    public static final Map<String, TypeKind> PRIMITIVE_TYPES;
-    static {
-        PRIMITIVE_TYPES = new HashMap<String, TypeKind>();
-        PRIMITIVE_TYPES.put("boolean", TypeKind.BOOLEAN);
-        PRIMITIVE_TYPES.put("byte", TypeKind.BYTE);
-        PRIMITIVE_TYPES.put("short", TypeKind.SHORT);
-        PRIMITIVE_TYPES.put("char", TypeKind.CHAR);
-        PRIMITIVE_TYPES.put("int", TypeKind.INT);
-        PRIMITIVE_TYPES.put("long", TypeKind.LONG);
-        PRIMITIVE_TYPES.put("float", TypeKind.FLOAT);
-        PRIMITIVE_TYPES.put("double", TypeKind.DOUBLE);
-    }
+public class KspAnnotationAnalyzer extends ModelAnalyzer {
 
-    public final ProcessingEnvironment mProcessingEnv;
-
-    public AnnotationAnalyzer(ProcessingEnvironment processingEnvironment, LibTypes libTypes) {
-        super(libTypes);
-        mProcessingEnv = processingEnvironment;
-        this.kspMode = false;
-        this.mKspProcessingEnv = null;
-        this.mResolver = null;
-    }
+    public final Map<String, KSType> PRIMITIVE_TYPES;
 
     public final SymbolProcessorEnvironment mKspProcessingEnv;
     public final Resolver mResolver;
-    public final boolean kspMode;
 
-    public AnnotationAnalyzer(Resolver resolver, SymbolProcessorEnvironment processingEnvironment, LibTypes libTypes) {
+    public KspAnnotationAnalyzer(Resolver resolver, SymbolProcessorEnvironment processingEnvironment, LibTypes libTypes) {
         super(libTypes);
-        this.kspMode = true;
         this.mKspProcessingEnv = processingEnvironment;
         this.mResolver = resolver;
-        this.mProcessingEnv = null;
+
+        PRIMITIVE_TYPES = new HashMap<String, KSType>();
+        PRIMITIVE_TYPES.put("boolean", mResolver.getBuiltIns().getBooleanType());
+        PRIMITIVE_TYPES.put("byte", mResolver.getBuiltIns().getByteType());
+        PRIMITIVE_TYPES.put("short", mResolver.getBuiltIns().getShortType());
+        PRIMITIVE_TYPES.put("char", mResolver.getBuiltIns().getCharType());
+        PRIMITIVE_TYPES.put("int", mResolver.getBuiltIns().getIntType());
+        PRIMITIVE_TYPES.put("long", mResolver.getBuiltIns().getLongType());
+        PRIMITIVE_TYPES.put("float", mResolver.getBuiltIns().getFloatType());
+        PRIMITIVE_TYPES.put("double", mResolver.getBuiltIns().getDoubleType());
+//        PRIMITIVE_TYPES.put("void", mResolver.getBuiltIns().getUnitType());
     }
 
-    public static AnnotationAnalyzer get() {
-        return (AnnotationAnalyzer) getInstance();
+    public static KspAnnotationAnalyzer get() {
+        return (KspAnnotationAnalyzer) getInstance();
     }
 
     @Override
-    public AnnotationClass loadPrimitive(String className) {
-        TypeKind typeKind = PRIMITIVE_TYPES.get(className);
+    public KspAnnotationClass loadPrimitive(String className) {
+        KSType typeKind = PRIMITIVE_TYPES.get(className);
         if (typeKind == null) {
             return null;
         } else {
-            Types typeUtils = getTypeUtils();
-            return new AnnotationClass(typeUtils.getPrimitiveType(typeKind));
+            return new KspAnnotationClass(typeKind);
         }
     }
 
     @Override
     public ModelClass findClassInternal(String className, ImportBag imports) {
-        Types typeUtils = getTypeUtils();
+        Resolver typeUtils = getKspResolver();
         className = className.trim();
         int numDimensions = 0;
         while (className.endsWith("[]")) {
             numDimensions++;
             className = className.substring(0, className.length() - 2);
         }
-        AnnotationClass primitive = loadPrimitive(className);
+        KspAnnotationClass primitive = loadPrimitive(className);
         if (primitive != null) {
             return addDimension(primitive.typeMirror, numDimensions);
         }
         if ("void".equals(className)) {
-            return addDimension(typeUtils.getNoType(TypeKind.VOID), numDimensions);
+            return addDimension(mResolver.getBuiltIns().getUnitType(), numDimensions);
         }
         int templateOpenIndex = className.indexOf('<');
-        DeclaredType declaredType;
+        KSType declaredType;
         if (templateOpenIndex < 0) {
-            TypeElement typeElement = getTypeElement(className, imports);
+            KSClassDeclaration typeElement = getTypeElement(className, imports);
             if (typeElement == null) {
                 return null;
             }
-            declaredType = MoreTypes.asDeclared(typeElement.asType());
+            declaredType = typeElement.asType(Collections.emptyList());
         } else {
             int templateCloseIndex = className.lastIndexOf('>');
             String paramStr = className.substring(templateOpenIndex + 1, templateCloseIndex);
 
             String baseClassName = className.substring(0, templateOpenIndex);
-            TypeElement typeElement = getTypeElement(baseClassName, imports);
+            KSClassDeclaration typeElement = getTypeElement(baseClassName, imports);
             if (typeElement == null) {
                 L.e("cannot find type element for %s", baseClassName);
                 return null;
             }
 
             ArrayList<String> templateParameters = splitTemplateParameters(paramStr);
-            TypeMirror[] typeArgs = new TypeMirror[templateParameters.size()];
-            for (int i = 0; i < typeArgs.length; i++) {
-                final AnnotationClass clazz = (AnnotationClass)
+//            KSType[] typeArgs = new KSType[templateParameters.size()];
+            List<KSTypeArgument> typeArguments = new ArrayList<>();
+            for (int i = 0; i < templateParameters.size(); i++) {
+                final KspAnnotationClass clazz = (KspAnnotationClass)
                         findClass(templateParameters.get(i), imports);
                 if (clazz == null) {
                     L.e("cannot find type argument for %s in %s", templateParameters.get(i),
                             baseClassName);
                     return null;
                 }
-                typeArgs[i] = clazz.typeMirror;
+//                typeArgs[i] = clazz.typeMirror;
+                typeArguments.add(typeUtils.getTypeArgument(typeUtils.createKSTypeReferenceFromKSType(clazz.typeMirror), Variance.INVARIANT));
             }
-            declaredType = typeUtils.getDeclaredType(typeElement, typeArgs);
+            declaredType = typeElement.asType(typeArguments);
         }
         return addDimension(declaredType, numDimensions);
     }
 
-    private AnnotationClass addDimension(TypeMirror type, int numDimensions) {
+    private KspAnnotationClass addDimension(KSType type, int numDimensions) {
         while (numDimensions > 0) {
-            type = getTypeUtils().getArrayType(type);
+            List<KSTypeArgument> types = new ArrayList<KSTypeArgument>();
+            types.add(getKspResolver().getTypeArgument(getKspResolver().createKSTypeReferenceFromKSType(type), Variance.INVARIANT));
+            type = getKspResolver().getBuiltIns().getArrayType().replace(types);
             numDimensions--;
         }
-        return new AnnotationClass(type);
+        return new KspAnnotationClass(type);
     }
 
-    private TypeElement getTypeElement(String className, ImportBag imports) {
-        Elements elementUtils = getElementUtils();
+    private KSClassDeclaration getTypeElement(String className, ImportBag imports) {
+        Resolver elementUtils = getKspResolver();
         final boolean hasDot = className.indexOf('.') >= 0;
         if (!hasDot && imports != null) {
             // try the imports
@@ -162,7 +152,7 @@ public class AnnotationAnalyzer extends ModelAnalyzer {
             // try java.lang.
             String javaLangClass = "java.lang." + className;
             try {
-                TypeElement javaLang = elementUtils.getTypeElement(javaLangClass);
+                KSClassDeclaration javaLang = elementUtils.getClassDeclarationByName(elementUtils.getKSNameFromString(javaLangClass));
                 if (javaLang != null) {
                     return javaLang;
                 }
@@ -171,10 +161,10 @@ public class AnnotationAnalyzer extends ModelAnalyzer {
             }
         }
         try {
-            TypeElement typeElement = elementUtils.getTypeElement(className);
+            KSClassDeclaration typeElement = elementUtils.getClassDeclarationByName(elementUtils.getKSNameFromString(className));
             if (typeElement == null && hasDot && imports != null) {
                 int lastDot = className.lastIndexOf('.');
-                TypeElement parent = getTypeElement(className.substring(0, lastDot), imports);
+                KSClassDeclaration parent = getTypeElement(className.substring(0, lastDot), imports);
                 if (parent != null) {
                     String name = parent.getQualifiedName() + "."
                             + className.substring(lastDot + 1);
@@ -223,30 +213,18 @@ public class AnnotationAnalyzer extends ModelAnalyzer {
         return findClass(classType.getCanonicalName(), null);
     }
 
-    public Types getTypeUtils() {
-        return mProcessingEnv.getTypeUtils();
-    }
-
-    public Elements getElementUtils() {
-        return mProcessingEnv.getElementUtils();
-    }
-
     public Resolver getKspResolver() {
         return mResolver;
     }
 
-
-    public ProcessingEnvironment getProcessingEnv() {
-        return mProcessingEnv;
-    }
-
     @Override
     public TypeUtil createTypeUtil() {
-        return new AnnotationTypeUtil(this);
+        return new KspAnnotationTypeUtil(this);
     }
 
     @Override
     protected boolean findGeneratedAnnotation() {
-        return getElementUtils().getTypeElement(GENERATED_ANNOTATION) != null;
+        return mResolver.getClassDeclarationByName(
+                mResolver.getKSNameFromString(GENERATED_ANNOTATION)) != null;
     }
 }

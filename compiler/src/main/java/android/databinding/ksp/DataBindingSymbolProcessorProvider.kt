@@ -1,4 +1,4 @@
-package android.databinding.kspprocessor
+package android.databinding.ksp
 
 
 import com.google.devtools.ksp.processing.SymbolProcessor
@@ -8,6 +8,9 @@ import com.google.devtools.ksp.processing.SymbolProcessorProvider
 
 class DataBindingSymbolProcessorProvider: SymbolProcessorProvider {
     override fun create(environment: SymbolProcessorEnvironment): SymbolProcessor {
-        return DataBindingSymbolProcessor(environment)
+        return DataBindingSymbolProcessor(
+            environment,
+            KSPLoggerWrapper(environment.logger)
+        )
     }
 }

@@ -13,11 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package android.databinding.tool.reflection.annotation;
+package android.databinding.tool.reflection.annotation.ksp;
 
 import android.databinding.tool.BindableCompat;
 import android.databinding.tool.reflection.ModelClass;
 import android.databinding.tool.reflection.ModelField;
+import android.databinding.tool.reflection.annotation.AnnotationAnalyzer;
+import android.databinding.tool.reflection.annotation.AnnotationClass;
 
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.VariableElement;
@@ -25,13 +27,14 @@ import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Types;
 
-public class AnnotationField extends ModelField {
+
+class KspAnnotationField extends ModelField {
 
     final VariableElement mField;
 
     final DeclaredType mDeclaredClass;
 
-    public AnnotationField(DeclaredType declaredClass, VariableElement field) {
+    public KspAnnotationField(DeclaredType declaredClass, VariableElement field) {
         mDeclaredClass = declaredClass;
         mField = field;
     }
@@ -80,8 +83,8 @@ public class AnnotationField extends ModelField {
 
     @Override
     public boolean equals(Object obj) {
-        if (obj instanceof AnnotationField) {
-            AnnotationField that = (AnnotationField) obj;
+        if (obj instanceof KspAnnotationField) {
+            KspAnnotationField that = (KspAnnotationField) obj;
             Types typeUtils = AnnotationAnalyzer.get().getTypeUtils();
             return typeUtils.isSameType(mDeclaredClass, that.mDeclaredClass)
                     && typeUtils.isSameType(mField.asType(), that.mField.asType())

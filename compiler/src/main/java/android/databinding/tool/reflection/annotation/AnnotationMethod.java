@@ -34,10 +34,10 @@ import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 import java.util.List;
 
-class AnnotationMethod extends ModelMethod {
-    final ExecutableType mMethod;
-    final DeclaredType mDeclaringType;
-    final ExecutableElement mExecutableElement;
+public class AnnotationMethod extends ModelMethod {
+    public final ExecutableType mMethod;
+    public final DeclaredType mDeclaringType;
+    public final ExecutableElement mExecutableElement;
     int mApiLevel = -1; // calculated on demand
     ModelClass mReceiverType;
 

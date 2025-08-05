@@ -61,17 +61,17 @@ import java.util.stream.Collectors;
         "androidx.databinding.InverseBindingMethods",
         "androidx.databinding.InverseMethod",
         "androidx.databinding.Untaggable",
-//        "android.databinding.Bindable",
-//        "android.databinding.BindingAdapter",
-//        "android.databinding.BindingBuildInfo",
-//        "android.databinding.BindingConversion",
-//        "android.databinding.BindingMethod",
-//        "android.databinding.BindingMethods",
-//        "android.databinding.InverseBindingAdapter",
-//        "android.databinding.InverseBindingMethod",
-//        "android.databinding.InverseBindingMethods",
-//        "android.databinding.InverseMethod",
-//        "android.databinding.Untaggable"
+        "android.databinding.Bindable",
+        "android.databinding.BindingAdapter",
+        "android.databinding.BindingBuildInfo",
+        "android.databinding.BindingConversion",
+        "android.databinding.BindingMethod",
+        "android.databinding.BindingMethods",
+        "android.databinding.InverseBindingAdapter",
+        "android.databinding.InverseBindingMethod",
+        "android.databinding.InverseBindingMethods",
+        "android.databinding.InverseMethod",
+        "android.databinding.Untaggable"
 })
 public class ProcessDataBinding extends AbstractProcessor {
 
@@ -230,45 +230,45 @@ public class ProcessDataBinding extends AbstractProcessor {
     /**
      * To ensure execution order and binding build information, we use processing steps.
      */
-    public abstract static class ProcessingStep {
-        private boolean mDone;
-        private JavaFileWriter mJavaFileWriter;
-        Callback mCallback;
+//    public abstract static class ProcessingStep {
+//        private boolean mDone;
+//        private JavaFileWriter mJavaFileWriter;
+//        Callback mCallback;
+//
+//        protected JavaFileWriter getWriter() {
+//            return mJavaFileWriter;
+//        }
+//
+//        private boolean runStep(RoundEnvironment roundEnvironment,
+//                ProcessingEnvironment processingEnvironment,
+//                CompilerArguments args) throws JAXBException {
+//            if (mDone) {
+//                return true;
+//            }
+//            mDone = onHandleStep(roundEnvironment, processingEnvironment, args);
+//            return mDone;
+//        }
+//
+//        /**
+//         * Invoked in each annotation processing step.
+//         *
+//         * @return True if it is done and should never be invoked again.
+//         */
+//        abstract public boolean onHandleStep(RoundEnvironment roundEnvironment,
+//                ProcessingEnvironment processingEnvironment,
+//                CompilerArguments args) throws JAXBException;
+//
+//        /**
+//         * Invoked when processing is done. A good place to generate the output if the
+//         * processor requires multiple steps.
+//         */
+//        abstract public void onProcessingOver(RoundEnvironment roundEnvironment,
+//                ProcessingEnvironment processingEnvironment,
+//                CompilerArguments args);
+//    }
 
-        protected JavaFileWriter getWriter() {
-            return mJavaFileWriter;
-        }
-
-        private boolean runStep(RoundEnvironment roundEnvironment,
-                ProcessingEnvironment processingEnvironment,
-                CompilerArguments args) throws JAXBException {
-            if (mDone) {
-                return true;
-            }
-            mDone = onHandleStep(roundEnvironment, processingEnvironment, args);
-            return mDone;
-        }
-
-        /**
-         * Invoked in each annotation processing step.
-         *
-         * @return True if it is done and should never be invoked again.
-         */
-        abstract public boolean onHandleStep(RoundEnvironment roundEnvironment,
-                ProcessingEnvironment processingEnvironment,
-                CompilerArguments args) throws JAXBException;
-
-        /**
-         * Invoked when processing is done. A good place to generate the output if the
-         * processor requires multiple steps.
-         */
-        abstract public void onProcessingOver(RoundEnvironment roundEnvironment,
-                ProcessingEnvironment processingEnvironment,
-                CompilerArguments args);
-    }
-
-    interface Callback {
-        void onChefReady(CompilerChef chef, GenClassInfoLog classInfoLog);
-        void onBrWriterReady(BindableBag.BRMapping brWithValues, List<String> brPackages);
-    }
+//    interface Callback {
+//        void onChefReady(CompilerChef chef, GenClassInfoLog classInfoLog);
+//        void onBrWriterReady(BindableBag.BRMapping brWithValues, List<String> brPackages);
+//    }
 }

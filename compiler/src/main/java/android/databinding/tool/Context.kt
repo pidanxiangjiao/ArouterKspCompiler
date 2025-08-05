@@ -22,12 +22,15 @@ import android.databinding.tool.reflection.SdkUtil
 import android.databinding.tool.reflection.TypeUtil
 import android.databinding.tool.reflection.annotation.AnnotationAnalyzer
 import android.databinding.tool.reflection.annotation.AnnotationLogger
+import android.databinding.tool.reflection.annotation.ksp.KspAnnotationAnalyzer
 import android.databinding.tool.store.SetterStore
 import android.databinding.tool.util.EMPTY_RESOURCES
 import android.databinding.tool.util.GenerationalClassUtil
 import android.databinding.tool.util.L
 import android.databinding.tool.util.parseRTxtFiles
 import android.databinding.tool.util.Resources
+import com.google.devtools.ksp.processing.Resolver
+import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import javax.annotation.processing.ProcessingEnvironment
 
 /**
@@ -39,6 +42,28 @@ import javax.annotation.processing.ProcessingEnvironment
  */
 object Context {
     private val logger: AnnotationLogger = AnnotationLogger()
+
+    var kspMode = false
+
+    @JvmStatic
+    fun initForKsp(resolver: Resolver,
+                   processingEnvironment: SymbolProcessorEnvironment,
+                   args: CompilerArguments
+    ) {
+        kspMode = true
+        L.setClient(logger)
+        val hasAndroidXBinding = discoverAndroidXForKsp(resolver)
+        libTypes = LibTypes(hasAndroidXBinding)
+        generationalClassUtil = GenerationalClassUtil.create(args)
+        modelAnalyzer = KspAnnotationAnalyzer(resolver, processingEnvironment, libTypes)
+        typeUtil = modelAnalyzer!!.createTypeUtil()
+        setterStore = SetterStore.create(modelAnalyzer, generationalClassUtil)
+        sdkUtil = SdkUtil.create(args.sdkDir, args.minApi)
+        resources =
+            parseRTxtFiles(args.localR, args.dependenciesRFiles, args.mergedDependenciesRFile)
+    }
+
+
     @JvmStatic
     fun init(processingEnvironment: ProcessingEnvironment,
              args: CompilerArguments
@@ -70,6 +95,17 @@ object Context {
         return hasAndroidXBinding
     }
 
+    private fun discoverAndroidXForKsp(resolver: Resolver): Boolean {
+        val hasSupportBinding = resolver.getClassDeclarationByName(resolver.getKSNameFromString("android.databinding.Observable")) != null
+        val hasAndroidXBinding = resolver.getClassDeclarationByName(resolver.getKSNameFromString("androidx.databinding.Observable")) != null
+        if (hasAndroidXBinding && hasSupportBinding) {
+            L.e("AndroidX Error: Both old and new data binding packages are available in dependencies. Make sure" +
+                    " you've setup jettifier  for any data binding dependencies and also set android.useAndroidx in" +
+                    " your gradle.properties file.")
+        }
+        return hasAndroidXBinding
+    }
+
     @JvmStatic
     fun initForTests(modelAnayzer: ModelAnalyzer, sdkUtil: SdkUtil) {
         this.modelAnalyzer = modelAnayzer
@@ -91,6 +127,10 @@ object Context {
 
     @JvmStatic
     var typeUtil: TypeUtil? = null
+        private set
+
+    @JvmStatic
+    var kspTypeUtil: Resolver? = null
         private set
 
     @JvmStatic

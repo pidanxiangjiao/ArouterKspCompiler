@@ -30,6 +30,9 @@ import android.databinding.tool.util.LoggedErrorException;
 import android.databinding.tool.util.Preconditions;
 import android.databinding.tool.util.StringUtils;
 
+import com.google.devtools.ksp.processing.Resolver;
+import com.google.devtools.ksp.processing.SymbolProcessorEnvironment;
+
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.element.Element;
@@ -47,8 +50,13 @@ import java.lang.annotation.Annotation;
 import java.util.HashSet;
 import java.util.List;
 
-public class ProcessMethodAdapters extends ProcessDataBinding.ProcessingStep {
+public class ProcessMethodAdapters extends ProcessingStep {
     private final static String INVERSE_BINDING_EVENT_ATTR_SUFFIX = "AttrChanged";
+
+    @Override
+    public boolean onHandleKspStep(Resolver roundEnvironment, SymbolProcessorEnvironment processingEnvironment, CompilerArguments args) {
+        return false;
+    }
 
     @Override
     public boolean onHandleStep(RoundEnvironment roundEnv,
