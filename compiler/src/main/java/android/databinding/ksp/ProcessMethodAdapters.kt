@@ -186,24 +186,26 @@ class ProcessMethodAdapters : ProcessingStep() {
         }
         val parameter1 = parameters[0].type.resolve()
         viewElement?.let {
-            if (parameter1.isAssignableFrom(viewElement)) {
+            if (it.isAssignableFrom(parameter1)) {
                 return false // first parameter is a View
             }
         }
         val analyzer = getInstance()
         if (parameters.size < 3) {
             val viewStubProxy = resolver.getClassDeclarationByName(resolver.getKSNameFromString(analyzer.libTypes.viewStubProxy))?.asStarProjectedType()
-            if (viewStubProxy != null && !parameter1.isAssignableFrom(viewStubProxy)) {
-                KspLogger.error(
-                    "@BindingAdapter $executableElement is applied to a method that has" +
-                            " two parameters, the first must be a View type:", executableElement
-                )
+            viewStubProxy?.let {
+                if (!it.isAssignableFrom(parameter1)) {
+                    KspLogger.error(
+                        "@BindingAdapter $executableElement is applied to a method that has" +
+                                " two parameters, the first must be a View type:", executableElement
+                    )
+                }
             }
             return false
         }
         val parameter2 = parameters[1].type.resolve()
         viewElement?.let {
-            if (parameter2.isAssignableFrom(viewElement)) {
+            if (it.isAssignableFrom(parameter2)) {
                 return true // second parameter is a View
             }
         }
