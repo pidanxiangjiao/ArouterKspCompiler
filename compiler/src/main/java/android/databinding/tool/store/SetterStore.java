@@ -1334,7 +1334,8 @@ public class SetterStore {
             this.method = method.getSimpleName().asString();
             final int argStart = 1 + (takesComponent ? 1 : 0);
             this.requiresOldValue = method.getParameters().size() - argStart == numAttributes * 2;
-            this.isStatic = method.getModifiers().contains(com.google.devtools.ksp.symbol.Modifier.JAVA_STATIC);
+            this.isStatic = method.getModifiers().contains(com.google.devtools.ksp.symbol.Modifier.JAVA_STATIC)
+                            || KspUtilKt.hasAnnotation(method, KspUtilKt.getJVM_STATIC_ANNOTATION_FQN());
             this.componentClass = takesComponent
                     ? KspUtilKt.getQualifiedName(method.getParameters().get(0).getType().resolve())
                     : null;

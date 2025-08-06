@@ -24,6 +24,8 @@ import android.databinding.tool.reflection.ModelAnalyzer.Companion.getInstance
 import android.databinding.tool.store.SetterStore
 import android.databinding.tool.util.LoggedErrorException
 import android.databinding.tool.util.Preconditions
+import com.google.devtools.ksp.isOpen
+import com.google.devtools.ksp.isPublic
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.symbol.KSFunctionDeclaration
@@ -98,7 +100,7 @@ class ProcessMethodAdapters : ProcessingStep() {
         val libTypes = getInstance().libTypes
         for (element in getElementsAnnotatedWith(resolver, libTypes.bindingAdapterClass.name)) {
             try {
-                if ((element !is KSFunctionDeclaration) || !element.modifiers.contains(Modifier.PUBLIC)) {
+                if ((element !is KSFunctionDeclaration) || !element.isPublic()) {
                     KspLogger.logging("@BindingAdapter on invalid element: %s", element)
                     continue
                 }
@@ -178,7 +180,7 @@ class ProcessMethodAdapters : ProcessingStep() {
         resolver: Resolver
     ): Boolean {
         val parameters = executableElement.parameters
-        val viewElement = resolver.getClassDeclarationByName(resolver.getKSNameFromString("android.view.View"))?.asType(emptyList())
+        val viewElement = resolver.getClassDeclarationByName(resolver.getKSNameFromString("android.view.View"))?.asStarProjectedType()
         if (parameters.size < 2) {
             return false // Validation will fail in the caller
         }
@@ -190,10 +192,10 @@ class ProcessMethodAdapters : ProcessingStep() {
         }
         val analyzer = getInstance()
         if (parameters.size < 3) {
-            val viewStubProxy = resolver.getClassDeclarationByName(resolver.getKSNameFromString(analyzer.libTypes.viewStubProxy))?.asType(emptyList())
+            val viewStubProxy = resolver.getClassDeclarationByName(resolver.getKSNameFromString(analyzer.libTypes.viewStubProxy))?.asStarProjectedType()
             if (viewStubProxy != null && !parameter1.isAssignableFrom(viewStubProxy)) {
                 KspLogger.error(
-                    "@BindingAdapter %s is applied to a method that has" +
+                    "@BindingAdapter $executableElement is applied to a method that has" +
                             " two parameters, the first must be a View type:", executableElement
                 )
             }

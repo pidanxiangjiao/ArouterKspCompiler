@@ -62,3 +62,11 @@ fun getQualifiedName(type: KSType): String {
     return res
 }
 
+
+fun KSAnnotated.hasAnnotation(fqn: String): Boolean =
+    annotations.any {
+        fqn.endsWith(it.shortName.asString()) &&
+                it.annotationType.resolve().declaration.qualifiedName?.asString() == fqn
+    }
+
+val JVM_STATIC_ANNOTATION_FQN = "kotlin.jvm.JvmStatic"

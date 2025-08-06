@@ -46,13 +46,14 @@ class BindingAdapterCompat(val attributes : Array<String>, val requireAll : Bool
 
         @JvmStatic
         fun create(element : KSDeclaration) : BindingAdapterCompat {
-            val support = element.findAnnotationWithType<android.databinding.BindingAdapter>()
-            if (support != null) {
-                return BindingAdapterCompat(
-                    attributes = support.value,
-                    requireAll = support.requireAll
-                )
-            }
+            //TODO ksp
+//            val support = element.findAnnotationWithType<android.databinding.BindingAdapter>()
+//            if (support != null) {
+//                return BindingAdapterCompat(
+//                    attributes = support.value,
+//                    requireAll = support.requireAll
+//                )
+//            }
             val androidX = element.findAnnotationWithType<androidx.databinding.BindingAdapter>()
             if (androidX != null) {
                 return BindingAdapterCompat(
