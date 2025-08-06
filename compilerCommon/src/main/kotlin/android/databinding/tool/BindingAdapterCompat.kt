@@ -16,6 +16,8 @@
 
 package android.databinding.tool
 
+import android.databinding.tool.ksp.findAnnotationWithType
+import com.google.devtools.ksp.symbol.KSDeclaration
 import javax.lang.model.element.Element
 
 /**
@@ -37,6 +39,25 @@ class BindingAdapterCompat(val attributes : Array<String>, val requireAll : Bool
                 return BindingAdapterCompat(
                         attributes = androidX.value,
                         requireAll = androidX.requireAll
+                )
+            }
+            throw IllegalArgumentException("$element does not have BindingAdapter annotation")
+        }
+
+        @JvmStatic
+        fun create(element : KSDeclaration) : BindingAdapterCompat {
+            val support = element.findAnnotationWithType<android.databinding.BindingAdapter>()
+            if (support != null) {
+                return BindingAdapterCompat(
+                    attributes = support.value,
+                    requireAll = support.requireAll
+                )
+            }
+            val androidX = element.findAnnotationWithType<androidx.databinding.BindingAdapter>()
+            if (androidX != null) {
+                return BindingAdapterCompat(
+                    attributes = androidX.value,
+                    requireAll = androidX.requireAll
                 )
             }
             throw IllegalArgumentException("$element does not have BindingAdapter annotation")

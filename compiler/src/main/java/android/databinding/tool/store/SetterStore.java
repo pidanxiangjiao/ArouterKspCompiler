@@ -16,6 +16,8 @@
 package android.databinding.tool.store;
 
 import android.databinding.tool.Context;
+import android.databinding.tool.ksp.KspLogger;
+import android.databinding.tool.ksp.KspUtilKt;
 import android.databinding.tool.reflection.ImportBag;
 import android.databinding.tool.reflection.ModelAnalyzer;
 import android.databinding.tool.reflection.ModelClass;
@@ -27,6 +29,11 @@ import android.databinding.tool.util.Preconditions;
 import android.databinding.tool.util.StringUtils;
 import com.android.annotations.NonNull;
 import com.android.annotations.Nullable;
+import com.google.devtools.ksp.processing.Resolver;
+import com.google.devtools.ksp.symbol.KSClassDeclaration;
+import com.google.devtools.ksp.symbol.KSFunctionDeclaration;
+import com.google.devtools.ksp.symbol.KSType;
+import com.google.devtools.ksp.symbol.KSValueParameter;
 
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.ExecutableElement;
@@ -222,6 +229,35 @@ public class SetterStore {
         mStore.addBindingAdapter(attribute, key, desc);
     }
 
+    public void addBindingAdapter(Resolver resolver, String attribute,
+                                  KSFunctionDeclaration bindingMethod, boolean takesComponent) {
+        attribute = stripNamespace(attribute);
+        android.databinding.tool.ksp.KspLogger.INSTANCE.logging("STORE addBindingAdapter " + attribute + " " + bindingMethod, bindingMethod);
+        List<KSValueParameter> parameters = bindingMethod.getParameters();
+        final int viewIndex = takesComponent ? 1 : 0;
+        KSType viewType = KspUtilKt.eraseType(resolver, parameters.get(viewIndex).getType().resolve());
+        String view = KspUtilKt.getQualifiedName(viewType);
+        KSType parameterType = KspUtilKt.eraseType(resolver, parameters.get(viewIndex + 1).getType().resolve());
+        String value = KspUtilKt.getQualifiedName(parameterType);
+
+        AccessorKey key = new AccessorKey(view, value);
+        MethodDescription desc = new MethodDescription(bindingMethod, 1, takesComponent);
+
+        mStore.addBindingAdapter(attribute, key, desc);
+    }
+
+
+    public void addBindingAdapter(Resolver resolver, String[] attributes,
+                                  KSFunctionDeclaration bindingMethod, boolean takesComponent, boolean requireAll) {
+        L.d("STORE add multi-value BindingAdapter %d %s", attributes.length, bindingMethod);
+        MultiValueAdapterKey key = new MultiValueAdapterKey(resolver, bindingMethod,
+                attributes, takesComponent, requireAll);
+        testRepeatedAttributes(key, bindingMethod);
+        MethodDescription methodDescription = new MethodDescription(bindingMethod,
+                attributes.length, takesComponent);
+        mStore.addMultiValueAdapter(key, methodDescription);
+    }
+
     public void addInverseAdapter(ProcessingEnvironment processingEnv, String attribute,
             String event, ExecutableElement bindingMethod, boolean takesComponent) {
         attribute = stripNamespace(attribute);
@@ -248,6 +284,7 @@ public class SetterStore {
             return typeMirror;
         }
     }
+
 
     private static ModelClass eraseType(ModelClass modelClass) {
         if (hasTypeVar(modelClass)) {
@@ -308,6 +345,19 @@ public class SetterStore {
         MethodDescription methodDescription = new MethodDescription(bindingMethod,
                 attributes.length, takesComponent);
         mStore.addMultiValueAdapter(key, methodDescription);
+    }
+
+    private static void testRepeatedAttributes(MultiValueAdapterKey key, KSFunctionDeclaration method) {
+        if (key.attributes.length != key.attributeIndices.size()) {
+            HashSet<String> names = new HashSet<>();
+            for (String attr : key.attributes) {
+                if (names.contains(attr)) {
+                    KspLogger.INSTANCE.error("Attribute \"" + attr + "\" is supplied multiple times in " +
+                            "BindingAdapter " + method.toString(), method);
+                }
+                names.add(attr);
+            }
+        }
     }
 
     private static void testRepeatedAttributes(MultiValueAdapterKey key, ExecutableElement method) {
@@ -1113,6 +1163,21 @@ public class SetterStore {
             }
         }
 
+        public MultiValueAdapterKey(Resolver resolver,
+                                    KSFunctionDeclaration method, String[] attributes, boolean takesComponent,
+                                    boolean requireAll) {
+            this.attributes = stripAttributes(attributes);
+            this.requireAll = requireAll;
+            List<KSValueParameter> parameters = method.getParameters();
+            final int argStart = 1 + (takesComponent ? 1 : 0);
+            this.viewType = KspUtilKt.getQualifiedName(KspUtilKt.eraseType(resolver, parameters.get(argStart - 1).getType().resolve()));
+            this.parameterTypes = new String[attributes.length];
+            for (int i = 0; i < attributes.length; i++) {
+                this.parameterTypes[i] = KspUtilKt.getQualifiedName(KspUtilKt.eraseType(resolver, parameters.get(i + argStart).getType().resolve()));
+                attributeIndices.put(this.attributes[i], i);
+            }
+        }
+
         @Override
         public boolean equals(Object obj) {
             if (!(obj instanceof MultiValueAdapterKey)) {
@@ -1257,6 +1322,21 @@ public class SetterStore {
             this.isStatic = method.getModifiers().contains(Modifier.STATIC);
             this.componentClass = takesComponent
                     ? getQualifiedName(method.getParameters().get(0).asType())
+                    : null;
+
+            L.d("BINARY created method desc 2 %s %s, %s", type, this.method, method);
+        }
+
+        public MethodDescription(KSFunctionDeclaration method, int numAttributes,
+                                 boolean takesComponent) {
+            KSClassDeclaration enclosingClass = (KSClassDeclaration) method.getParentDeclaration();
+            this.type = enclosingClass.getQualifiedName().asString();
+            this.method = method.getSimpleName().asString();
+            final int argStart = 1 + (takesComponent ? 1 : 0);
+            this.requiresOldValue = method.getParameters().size() - argStart == numAttributes * 2;
+            this.isStatic = method.getModifiers().contains(com.google.devtools.ksp.symbol.Modifier.JAVA_STATIC);
+            this.componentClass = takesComponent
+                    ? KspUtilKt.getQualifiedName(method.getParameters().get(0).getType().resolve())
                     : null;
 
             L.d("BINARY created method desc 2 %s %s, %s", type, this.method, method);

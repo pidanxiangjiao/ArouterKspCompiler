@@ -24,6 +24,7 @@ import android.databinding.annotationprocessor.ProcessingStep
 import android.databinding.tool.CompilerArguments
 import android.databinding.tool.CompilerChef
 import android.databinding.tool.Context
+import android.databinding.tool.ksp.KspLogger
 import android.databinding.tool.processing.Scope
 import android.databinding.tool.processing.ScopedException
 import android.databinding.tool.store.GenClassInfoLog
@@ -36,7 +37,6 @@ import com.google.devtools.ksp.symbol.KSAnnotated
 
 class DataBindingSymbolProcessor(
     private val environment: SymbolProcessorEnvironment,
-    private val logger: KSPLoggerWrapper,
 ) : SymbolProcessor {
 
     override fun finish() {
@@ -58,7 +58,7 @@ class DataBindingSymbolProcessor(
             if (it.isTestVariant && !it.isEnabledForTests &&
                 !it.isLibrary
             ) {
-                logger.warn("data binding processor is invoked but not enabled, skipping...")
+                KspLogger.warn("data binding processor is invoked but not enabled, skipping...")
                 return emptyList()
             }
             Context.initForKsp(resolver, environment, mCompilerArgs!!)
@@ -68,7 +68,7 @@ class DataBindingSymbolProcessor(
                     step.runKspStep(resolver, environment, it)
                 } catch (e: Exception) {
                     e.printStackTrace()
-                    logger.error("Exception while handling step $step")
+                    KspLogger.error("Exception while handling step $step")
                 }
             }
 
@@ -144,7 +144,7 @@ class DataBindingSymbolProcessor(
         try {
             val options = environment.options
             mCompilerArgs = CompilerArguments.readFromOptions(options)
-            logger.logging("processor args: $mCompilerArgs")
+            KspLogger.logging("processor args: $mCompilerArgs")
             ScopedException.encodeOutput(mCompilerArgs?.printEncodedErrorLogs?:false)
         } catch (t: Throwable) {
             t.printStackTrace()

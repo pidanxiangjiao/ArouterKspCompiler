@@ -1,12 +1,17 @@
-package android.databinding.ksp
+package android.databinding.tool.ksp
 
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSNode
 
-class KSPLoggerWrapper(private val logger: KSPLogger) : KSPLogger {
-    companion object {
-        const val TAG = "DataBinding" + "::KspCompiler "
-    }
+object KspLogger : KSPLogger {
+
+    private var _logger: KSPLogger? = null
+
+    var logger: KSPLogger
+        get() = _logger ?: throw RuntimeException("KSPLogger must be initialized before use.")
+        set(value) { _logger = value }
+
+    const val TAG = "DataBinding::KspCompiler "
 
     override fun error(message: String, symbol: KSNode?) {
         if (message.isNotEmpty()) {
