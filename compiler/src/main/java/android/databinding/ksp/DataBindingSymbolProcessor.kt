@@ -88,7 +88,7 @@ class DataBindingSymbolProcessor(
         mProcessingSteps = listOf(
             ProcessMethodAdapters(),
             //TODO ksp
-//            ProcessExpressions(),
+            ProcessExpressions(),
 //            processBindable,
         )
         val dataBinderWriterCallback = object : Callback {

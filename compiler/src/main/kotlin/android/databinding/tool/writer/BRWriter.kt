@@ -30,6 +30,7 @@ import javax.lang.model.element.Modifier
 
 class BRWriter(private val useFinal : Boolean) {
     fun write(values : BindableBag.ModuleBR): String {
+        //TODO ksp
         val spec = TypeSpec.classBuilder("BR").apply {
             addModifiers(Modifier.PUBLIC)
             if (ModelAnalyzer.getInstance().hasGeneratedAnnotation) {

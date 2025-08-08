@@ -128,6 +128,7 @@ class BindableBag(
                                    captureValues: Boolean): PackageProps {
         val processed = if (captureValues) {
             // load class and extract value
+            //TODO ksp
             val typeElement = env.elementUtils.getTypeElement(pkg + ".BR")
             if (typeElement == null) {
                 properties.map { Property(it, null) }
