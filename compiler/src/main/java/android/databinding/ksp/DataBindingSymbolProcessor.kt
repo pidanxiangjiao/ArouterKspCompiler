@@ -29,6 +29,8 @@ import android.databinding.tool.processing.Scope
 import android.databinding.tool.processing.ScopedException
 import android.databinding.tool.store.GenClassInfoLog
 import android.databinding.tool.util.Preconditions
+import android.databinding.tool.writer.AnnotationJavaFileWriter
+import android.databinding.tool.writer.KspJavaFileWriter
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
@@ -131,10 +133,10 @@ class DataBindingSymbolProcessor(
                 considerWritingMapper()
             }
         }
-        //TODO ksp
-//        val javaFileWriter = AnnotationJavaFileWriter(processingEnv)
+        //TODO ksp test
+        val javaFileWriter = KspJavaFileWriter(environment.codeGenerator)
         mProcessingSteps?.forEach { step ->
-//            step.mJavaFileWriter = javaFileWriter //TODO ksp
+            step.mJavaFileWriter = javaFileWriter //TODO ksp test
             step.mCallback = dataBinderWriterCallback
         }
     }

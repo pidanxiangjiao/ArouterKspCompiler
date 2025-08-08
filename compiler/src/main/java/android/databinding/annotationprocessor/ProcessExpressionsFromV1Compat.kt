@@ -22,6 +22,7 @@ import android.databinding.tool.reflection.ModelAnalyzer
 import android.databinding.tool.store.ResourceBundle
 import android.databinding.tool.writer.BindingMapperWriterV2
 import android.databinding.tool.writer.JavaFileWriter
+import com.google.devtools.ksp.processing.Resolver
 import java.util.HashMap
 import javax.annotation.processing.ProcessingEnvironment
 
@@ -30,7 +31,8 @@ import javax.annotation.processing.ProcessingEnvironment
  * compiler chef specific to them. (to be able to treat them like a v2 dependency).
  */
 class ProcessExpressionsFromV1Compat(
-    private val processingEnvironment: ProcessingEnvironment,
+    private val processingEnvironment: ProcessingEnvironment?,
+    private val resolver: Resolver?,
     private val args : CompilerArguments,
     private val intermediates : List<ProcessExpressions.IntermediateV2>,
     private val writer : JavaFileWriter) {
@@ -45,13 +47,15 @@ class ProcessExpressionsFromV1Compat(
         // if we are an app, we should generate it.
         val isModuleInV2Lookup = HashMap<String, Boolean>()
 
+
         fun isModuleInV2(modulePackage : String) : Boolean {
             return isModuleInV2Lookup.getOrPut(modulePackage) {
                 val mapperClass = BindingMapperWriterV2.createMapperQName(modulePackage)
                 // check if mapper exists for it
                 val typeElement =
-                    processingEnvironment.elementUtils.getTypeElement(mapperClass)
-                typeElement != null
+                    (processingEnvironment?.elementUtils?.getTypeElement(mapperClass) != null)
+                            || resolver?.getClassDeclarationByName(resolver.getKSNameFromString(mapperClass)) != null //TODO ksp
+                typeElement
             }
         }
         // mapping from key (layoutName) to generated code QName (or base class)

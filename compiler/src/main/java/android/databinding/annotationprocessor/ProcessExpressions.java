@@ -98,6 +98,7 @@ public class ProcessExpressions extends ProcessingStep {
                 intermediateList = Collections.emptyList();
                 v1CompatChef = new ProcessExpressionsFromV1Compat(
                         processingEnvironment,
+                        null,
                         args,
                         loadDependencyIntermediates(),
                         getWriter()
@@ -297,7 +298,7 @@ public class ProcessExpressions extends ProcessingStep {
     public static class IntermediateV1 implements Intermediate {
 
         // name to xml content map
-        Map<String, String> mLayoutInfoMap = new HashMap<String, String>();
+        public Map<String, String> mLayoutInfoMap = new HashMap<String, String>();
 
         @Override
         public Intermediate upgrade() {
