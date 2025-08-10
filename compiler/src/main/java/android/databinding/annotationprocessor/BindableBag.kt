@@ -135,19 +135,20 @@ class BindableBag(
             // load class and extract value
             if (compilerArgs.isKsp) {
                 kspResolver?.let { resolver ->
-                    val typeElement = resolver.getClassDeclarationByName(resolver.getKSNameFromString(pkg + ".BR"))
-                    if (typeElement == null) {
-                        properties.map { Property(it, null) }
-                    } else {
-                        //TODO ksp to test, To be implemented https://github.com/google/ksp/issues/579
-                        val fields = typeElement.getAllProperties().toList()
-                        properties.map { prop ->
-                            val value = fields.firstOrNull {
-                                it.simpleName.asString() == prop
-                            }?.constantValue as? Int // might happen with blaze
-                            Property(prop, value)
-                        }
-                    }
+                    properties.map { Property(it, null) }
+//                    val typeElement = resolver.getClassDeclarationByName(resolver.getKSNameFromString(pkg + ".BR"))
+//                    if (typeElement == null) {
+//                        properties.map { Property(it, null) }
+//                    } else {
+//                        //TODO ksp to test, To be implemented https://github.com/google/ksp/issues/579
+//                        val fields = typeElement.getAllProperties().toList()
+//                        properties.map { prop ->
+//                            val value = fields.firstOrNull { field ->
+//                                field.simpleName.asString() == prop
+//                            }?.constantValue as? Int // might happen with blaze
+//                            Property(prop, value)
+//                        }
+//                    }
                 } ?: run {
                     throw RuntimeException("createPackageProps with null kspResolver")
                 }
