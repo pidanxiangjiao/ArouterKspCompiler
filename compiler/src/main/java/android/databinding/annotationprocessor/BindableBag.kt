@@ -139,11 +139,12 @@ class BindableBag(
                     if (typeElement == null) {
                         properties.map { Property(it, null) }
                     } else {
+                        //TODO ksp to test, To be implemented https://github.com/google/ksp/issues/579
                         val fields = typeElement.getAllProperties().toList()
                         properties.map { prop ->
                             val value = fields.firstOrNull {
                                 it.simpleName.asString() == prop
-                            }?.constantValue as? Int // might happen with blaze TODO ksp to test, To be implemented
+                            }?.constantValue as? Int // might happen with blaze
                             Property(prop, value)
                         }
                     }

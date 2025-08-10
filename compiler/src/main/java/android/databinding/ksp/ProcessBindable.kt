@@ -159,7 +159,7 @@ class ProcessBindable : ProcessBindable() {
         return prefixes(name,"get") &&
                 name[3].isJavaIdentifierStart() &&
                 element.parameters.isEmpty() &&
-                element.returnType.kind != TypeKind.VOID
+                element.returnType?.resolve() != mResolver?.builtIns?.unitType
     }
 
     private fun isSetter(element: KSFunctionDeclaration): Boolean {
@@ -167,7 +167,7 @@ class ProcessBindable : ProcessBindable() {
         return prefixes(name,"set") &&
                 name[3].isJavaIdentifierStart() &&
                 element.parameters.size == 1 &&
-                element.returnType.kind == TypeKind.VOID
+                element.returnType?.resolve() == mResolver?.builtIns?.unitType
     }
 
     private fun isBooleanGetter(element: KSFunctionDeclaration): Boolean {
@@ -175,7 +175,7 @@ class ProcessBindable : ProcessBindable() {
         return prefixes(name,"is") &&
                 name[2].isJavaIdentifierStart() &&
                 element.parameters.isEmpty() &&
-                element.returnType.kind == TypeKind.BOOLEAN
+                element.returnType?.resolve() == mResolver?.builtIns?.booleanType
     }
 
     private fun generateBRClasses(
