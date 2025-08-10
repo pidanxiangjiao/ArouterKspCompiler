@@ -23,6 +23,7 @@ import android.databinding.tool.DataBindingBuilder
 import android.databinding.tool.FeaturePackageInfo
 import android.databinding.tool.util.GenerationalClassUtil
 import android.databinding.tool.util.L
+import com.google.devtools.ksp.processing.Resolver
 import java.io.File
 import javax.annotation.processing.ProcessingEnvironment
 import javax.lang.model.util.ElementFilter
@@ -41,7 +42,8 @@ class BindableBag(
     private val compilerArgs: CompilerArguments,
         // BR fields in curretn module
     moduleProperties: Set<String>,
-    private val env: ProcessingEnvironment) {
+    private val env: ProcessingEnvironment? = null,
+    private val kspResolver: Resolver? = null) {
     // The BR fields we will generate.
     val toBeGenerated: List<ModuleBR>
     // The list of package names that are generated. We usually generate for all dependencies
@@ -63,15 +65,18 @@ class BindableBag(
         val modulePackageProps = createPackageProps(
                 pkg = compilerArgs.modulePackage,
                 properties = moduleProperties,
-                captureValues = false)
+                captureValues = false,
+                compilerArgs = compilerArgs
+            )
         val brFiles = loadPreviousBRFiles(
                 generationalClassUtil = Context.generationalClassUtil!!,
-                captureValues = true) + modulePackageProps
+                captureValues = true,
+                compilerArgs = compilerArgs) + modulePackageProps
 
         val brPackagesToGenerate = if (compilerArgs.isFeature) {
             // only generate BR id for current module + dependencies that are not inherited from
             // other features.
-            val featureBRFiles = loadPreviousBRFilesForFeature(captureValues = false)
+            val featureBRFiles = loadPreviousBRFilesForFeature(captureValues = false, compilerArgs)
             featureBRFiles.map { it.pkg }.toSet() + compilerArgs.modulePackage
         } else {
             // generate BR for all dependencies
@@ -125,22 +130,47 @@ class BindableBag(
      * Convert Bindable list in this module into PackageProps class
      */
     private fun createPackageProps(pkg: String, properties: Set<String>,
-                                   captureValues: Boolean): PackageProps {
+                                   captureValues: Boolean, compilerArgs: CompilerArguments): PackageProps {
         val processed = if (captureValues) {
             // load class and extract value
-            //TODO ksp
-            val typeElement = env.elementUtils.getTypeElement(pkg + ".BR")
-            if (typeElement == null) {
-                properties.map { Property(it, null) }
-            } else {
-                val fields = ElementFilter.fieldsIn(typeElement.enclosedElements)
-                properties.map { prop ->
-                    val value = fields.firstOrNull {
-                        it.simpleName.toString() == prop
-                    }?.constantValue as? Int // might happen with blaze
-                    Property(prop, value)
+            if (compilerArgs.isKsp) {
+                kspResolver?.let { resolver ->
+                    val typeElement = resolver.getClassDeclarationByName(resolver.getKSNameFromString(pkg + ".BR"))
+                    if (typeElement == null) {
+                        properties.map { Property(it, null) }
+                    } else {
+                        val fields = typeElement.getAllProperties().toList()
+                        properties.map { prop ->
+                            val value = fields.firstOrNull {
+                                it.simpleName.asString() == prop
+                            }?.constantValue as? Int // might happen with blaze TODO ksp to test, To be implemented
+                            Property(prop, value)
+                        }
+                    }
+                } ?: run {
+                    throw RuntimeException("createPackageProps with null kspResolver")
                 }
+
+            } else {
+                env?.let {
+                    val typeElement = env.elementUtils.getTypeElement(pkg + ".BR")
+                    if (typeElement == null) {
+                        properties.map { Property(it, null) }
+                    } else {
+                        val fields = ElementFilter.fieldsIn(typeElement.enclosedElements)
+                        properties.map { prop ->
+                            val value = fields.firstOrNull {
+                                it.simpleName.toString() == prop
+                            }?.constantValue as? Int // might happen with blaze
+                            Property(prop, value)
+                        }
+                    }
+                }?: run {
+                    throw RuntimeException("createPackageProps with null ProcessingEnvironment")
+                }
+
             }
+
         } else {
             properties.map { Property(it, null) }
         }
@@ -151,10 +181,10 @@ class BindableBag(
      * Load BR files which only exist as dependencies on the current feature so we need to
      * generate their BR classes.
      */
-    private fun loadPreviousBRFilesForFeature(captureValues: Boolean): List<PackageProps> {
+    private fun loadPreviousBRFilesForFeature(captureValues: Boolean, compilerArgs: CompilerArguments): List<PackageProps> {
         val inputFolder = compilerArgs.featureInfoDir ?: return emptyList()
         val util = GenerationalClassUtil(inputFolder, null)
-        return loadPreviousBRFiles(util, captureValues)
+        return loadPreviousBRFiles(util, captureValues, compilerArgs)
     }
 
     /**
@@ -164,14 +194,15 @@ class BindableBag(
      */
     private fun loadPreviousBRFiles(
             generationalClassUtil: GenerationalClassUtil,
-            captureValues: Boolean)
+            captureValues: Boolean,
+            compilerArgs: CompilerArguments)
             : List<PackageProps> {
         val brFiles = generationalClassUtil
                 .load(GenerationalClassUtil.ExtensionFilter.BR, Intermediate::class.java)
         return brFiles
                 .filter { compilerArgs.modulePackage != it.`package` }
                 .map {
-                    createPackageProps(it.`package`, it.getProperties(), captureValues)
+                    createPackageProps(it.`package`, it.getProperties(), captureValues, compilerArgs)
                 }
     }
 

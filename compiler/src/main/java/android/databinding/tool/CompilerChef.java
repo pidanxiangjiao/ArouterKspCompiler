@@ -31,6 +31,8 @@ import android.databinding.tool.writer.MergedBindingMapperWriter;
 import com.android.annotations.NonNull;
 import com.android.annotations.Nullable;
 import com.google.common.collect.Sets;
+import com.google.devtools.ksp.processing.Resolver;
+import com.google.devtools.ksp.symbol.KSClassDeclaration;
 import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.TypeSpec;
 import org.jetbrains.annotations.NotNull;
@@ -235,6 +237,80 @@ public class CompilerChef {
                     dbr.write(brValueLookup));
         }
     }
+    @NotNull
+    private SortedSet<String> getDirectDependencies(
+            Resolver processingEnv,
+            CompilerArguments compilerArgs,
+            List<String> modulePackages) {
+        TreeSet<String> explicitPkgs = compilerArgs.parseDirectDependencyPackages();
+        if (explicitPkgs != null) {
+            // used the value specified by the compiler
+            return Sets.newTreeSet(explicitPkgs);
+        }
+        return modulePackages.stream()
+                .filter(modulePackage -> {
+                    if (modulePackage.equals(compilerArgs.getModulePackage())) {
+                        // I'm not a dependency
+                        return false;
+                    }
+                    String mapper = BindingMapperWriterV2.createMapperQName(modulePackage);
+                    //TODO ksp to test
+                    KSClassDeclaration impl =
+                            processingEnv.getClassDeclarationByName(processingEnv.getKSNameFromString(mapper));
+                    return impl != null;
+                }).distinct().collect(Collectors.toCollection(TreeSet::new));
+    }
+    public void writeDataBinderMapper(
+            Resolver processingEnv,
+            CompilerArguments compilerArgs,
+            BindableBag.BRMapping brValueLookup,
+            List<String> modulePackages) {
+        if (compilerArgs.isEnableV2()) {
+            // figure out which mappers exists as they may not exist for v1 libs.
+            SortedSet<String> availableDependencyModules = getDirectDependencies(
+                    processingEnv, compilerArgs, modulePackages);
+            final boolean generateMapper;
+            if (compilerArgs.isApp()) {
+                // generate mapper for apps only if it is not test or enabled for tests.
+                generateMapper = !compilerArgs.isTestVariant() || compilerArgs.isEnabledForTests();
+            } else {
+                // always generate mapper for libs or features
+                generateMapper = true;
+            }
+            if (generateMapper) {
+                writeMapperForModule(compilerArgs, brValueLookup, availableDependencyModules);
+            }
+
+            // merged mapper is the one generated for the whole app that includes the mappers
+            // generated for individual modules.
+            final boolean generateMergedMapper;
+            if (compilerArgs.isApp()) {
+                generateMergedMapper = !compilerArgs.isTestVariant();
+            } else if (!compilerArgs.isFeature()) {
+                generateMergedMapper = compilerArgs.isTestVariant();
+            } else {
+                generateMergedMapper = false;
+            }
+            if (generateMergedMapper) {
+                if (mV1CompatChef != null) {
+                    // only generate v1 compat if we are generating the merged
+                    writeMapperForV1Compat(compilerArgs, brValueLookup);
+                }
+                writeMergedMapper(compilerArgs);
+            }
+        } else {
+            final String pkg = ModelAnalyzer.getInstance().libTypes.getBindingPackage();
+            final String mapperName = "DataBinderMapperImpl";
+
+            ensureDataBinder();
+            LibTypes libTypes = ModelAnalyzer.getInstance().libTypes;
+            BindingMapperWriter dbr = new BindingMapperWriter(pkg, mapperName,
+                    mDataBinder.getLayoutBinders(), compilerArgs, libTypes);
+            mFileWriter.writeToFile(
+                    pkg + "." + dbr.getClassName(),
+                    dbr.write(brValueLookup));
+        }
+    }
 
     @NotNull
     private SortedSet<String> getDirectDependencies(
@@ -253,7 +329,6 @@ public class CompilerChef {
                         return false;
                     }
                     String mapper = BindingMapperWriterV2.createMapperQName(modulePackage);
-                    //TODO ksp
                     TypeElement impl = processingEnv
                             .getElementUtils()
                             .getTypeElement(mapper);

@@ -152,10 +152,11 @@ public class ProcessBindable extends ProcessingStep implements BindableHolder {
             L.d("************* Generating BR file %s. use final: %s", pkg, artifactType.name());
             HashSet<String> properties = new HashSet<>();
             mProperties.captureProperties(properties);
+            //TODO ksp BindableBag
             BindableBag bindableBag = new BindableBag(
                     compilerArgs,
                     getProperties(mProperties),
-                    processingEnv);
+                    processingEnv, null);
             final JavaFileWriter writer = getWriter();
             boolean useFinal = compilerArgs.isApp()
                     || compilerArgs.isFeature()
@@ -220,7 +221,7 @@ public class ProcessBindable extends ProcessingStep implements BindableHolder {
                 propertyName.subSequence(1, propertyName.length());
     }
 
-    private void mergeLayoutVariables() {
+    protected void mergeLayoutVariables() {
         for (String containingClass : mLayoutVariables.keySet()) {
             for (String variable : mLayoutVariables.get(containingClass)) {
                 mProperties.addProperty(containingClass, variable);
@@ -228,7 +229,7 @@ public class ProcessBindable extends ProcessingStep implements BindableHolder {
         }
     }
 
-    private static boolean prefixes(CharSequence sequence, String prefix) {
+    protected static boolean prefixes(CharSequence sequence, String prefix) {
         boolean prefixes = false;
         if (sequence.length() > prefix.length()) {
             int count = prefix.length();
@@ -267,7 +268,7 @@ public class ProcessBindable extends ProcessingStep implements BindableHolder {
                 element.getReturnType().getKind() == TypeKind.BOOLEAN;
     }
 
-    interface Intermediate extends Serializable {
+    public interface Intermediate extends Serializable {
 
         void captureProperties(Set<String> properties);
 
@@ -278,7 +279,7 @@ public class ProcessBindable extends ProcessingStep implements BindableHolder {
         String getPackage();
     }
 
-    static class IntermediateV1 implements Serializable, Intermediate {
+    public static class IntermediateV1 implements Serializable, Intermediate {
         private static final long serialVersionUID = 2L;
 
         private String mPackage;
@@ -316,7 +317,7 @@ public class ProcessBindable extends ProcessingStep implements BindableHolder {
         }
     }
 
-    static Set<String> getProperties(Intermediate intermediate) {
+    public static Set<String> getProperties(Intermediate intermediate) {
         Set<String> out = new HashSet<>();
         intermediate.captureProperties(out);
         return out;

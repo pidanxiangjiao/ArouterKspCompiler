@@ -105,6 +105,8 @@ data class CompilerArguments constructor(
     val isFeature: Boolean
         get() = artifactType == Type.FEATURE
 
+    var isKsp: Boolean = false
+
     // returns null if not specified
     fun parseDirectDependencyPackages() : TreeSet<String>? {
         return directDependencyPackages?.let {

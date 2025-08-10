@@ -19,7 +19,6 @@ package android.databinding.ksp
 
 import android.databinding.annotationprocessor.BindableBag
 import android.databinding.annotationprocessor.Callback
-import android.databinding.annotationprocessor.ProcessBindable
 import android.databinding.annotationprocessor.ProcessingStep
 import android.databinding.tool.CompilerArguments
 import android.databinding.tool.CompilerChef
@@ -29,7 +28,6 @@ import android.databinding.tool.processing.Scope
 import android.databinding.tool.processing.ScopedException
 import android.databinding.tool.store.GenClassInfoLog
 import android.databinding.tool.util.Preconditions
-import android.databinding.tool.writer.AnnotationJavaFileWriter
 import android.databinding.tool.writer.KspJavaFileWriter
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.processing.SymbolProcessor
@@ -47,8 +45,11 @@ class DataBindingSymbolProcessor(
 
     private var mProcessingSteps: List<ProcessingStep>? = null
     private var mCompilerArgs: CompilerArguments? = null
+    private var mResolver: Resolver? = null
 
     override fun process(resolver: Resolver): List<KSAnnotated> {
+        mResolver = resolver
+
         if (mProcessingSteps == null) {
             readArguments()
             initProcessingSteps()
@@ -89,9 +90,9 @@ class DataBindingSymbolProcessor(
         val processBindable = ProcessBindable()
         mProcessingSteps = listOf(
             ProcessMethodAdapters(),
-            //TODO ksp
+            //TODO ksp to test
             ProcessExpressions(),
-//            processBindable,
+            processBindable,
         )
         val dataBinderWriterCallback = object : Callback {
             var chef: CompilerChef? = null
@@ -119,8 +120,8 @@ class DataBindingSymbolProcessor(
                     return
                 }
                 writtenMapper = true
-                //TODO ksp
-//                chef?.writeDataBinderMapper(processingEnv, mCompilerArgs, brVariableLookup, modulePackages)
+                //TODO ksp to test
+                chef?.writeDataBinderMapper(mResolver, mCompilerArgs, brVariableLookup, modulePackages)
             }
 
             override fun onBrWriterReady(
@@ -133,10 +134,10 @@ class DataBindingSymbolProcessor(
                 considerWritingMapper()
             }
         }
-        //TODO ksp test
+        //TODO ksp to test
         val javaFileWriter = KspJavaFileWriter(environment.codeGenerator)
         mProcessingSteps?.forEach { step ->
-            step.mJavaFileWriter = javaFileWriter //TODO ksp test
+            step.mJavaFileWriter = javaFileWriter
             step.mCallback = dataBinderWriterCallback
         }
     }
@@ -146,6 +147,7 @@ class DataBindingSymbolProcessor(
         try {
             val options = environment.options
             mCompilerArgs = CompilerArguments.readFromOptions(options)
+            mCompilerArgs?.isKsp = true
             KspLogger.logging("processor args: $mCompilerArgs")
             ScopedException.encodeOutput(mCompilerArgs?.printEncodedErrorLogs?:false)
         } catch (t: Throwable) {

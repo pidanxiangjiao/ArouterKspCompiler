@@ -65,6 +65,7 @@ public class KspAnnotationTypeUtil extends TypeUtil {
     @Override
     public String getDescription(ModelMethod modelMethod) {
         // TODO use interface
+        //TODO ksp
         AnnotationMethod method = ((AnnotationMethod) modelMethod);
         return getExecutableDescription(
                 method.mExecutableElement, method.mMethod);

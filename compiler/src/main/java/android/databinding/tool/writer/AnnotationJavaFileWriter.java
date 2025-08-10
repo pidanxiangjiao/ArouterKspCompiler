@@ -37,7 +37,6 @@ public class AnnotationJavaFileWriter extends JavaFileWriter {
         Writer writer = null;
         try {
             L.d("writing file %s", canonicalName);
-            //TODO ksp
             JavaFileObject javaFileObject =
                     mProcessingEnvironment.getFiler().createSourceFile(canonicalName);
             writer = javaFileObject.openWriter();

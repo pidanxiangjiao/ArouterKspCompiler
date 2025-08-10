@@ -52,9 +52,10 @@ class ProcessExpressionsFromV1Compat(
             return isModuleInV2Lookup.getOrPut(modulePackage) {
                 val mapperClass = BindingMapperWriterV2.createMapperQName(modulePackage)
                 // check if mapper exists for it
+                //TODO ksp to test
                 val typeElement =
                     (processingEnvironment?.elementUtils?.getTypeElement(mapperClass) != null)
-                            || resolver?.getClassDeclarationByName(resolver.getKSNameFromString(mapperClass)) != null //TODO ksp
+                            || resolver?.getClassDeclarationByName(resolver.getKSNameFromString(mapperClass)) != null
                 typeElement
             }
         }
