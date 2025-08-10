@@ -12,3 +12,4 @@ public @interface BRFieldInfo {
     String name();
     int value();
 }
+
