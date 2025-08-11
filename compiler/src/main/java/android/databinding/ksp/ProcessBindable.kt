@@ -23,7 +23,7 @@ import com.google.devtools.ksp.symbol.KSPropertyDeclaration
 //import javax.lang.model.element.VariableElement
 
 class ProcessBindable : ProcessBindable() {
-    private lateinit var mProperties: Intermediate
+    private var mProperties: Intermediate? = null
     private val mLayoutVariables = HashMap<String, HashSet<String>>()
 
     private var mResolver : Resolver? = null
@@ -78,7 +78,7 @@ class ProcessBindable : ProcessBindable() {
                                 "Must receive app/library info before Bindable fields."
                             }
 
-                            mProperties.addProperty(enclosingElement?.qualifiedName?.asString(), it)
+                            mProperties!!.addProperty(enclosingElement?.qualifiedName?.asString(), it)
                         }
                     } catch (e: LoggedErrorException) {
                         // We'll get them later when we do the messages
@@ -86,11 +86,11 @@ class ProcessBindable : ProcessBindable() {
                 }
 
             GenerationalClassUtil.get().write(
-                mProperties.getPackage(),
+                mProperties!!.getPackage(),
                 GenerationalClassUtil.ExtensionFilter.BR,
-                mProperties
+                mProperties!!
             )
-            generateBRClasses(resolver, args, mProperties.getPackage())
+            generateBRClasses(resolver, args, mProperties!!.getPackage())
         }
 
         return true
@@ -188,7 +188,7 @@ class ProcessBindable : ProcessBindable() {
             L.d("************* Generating BR file %s. use final: %s", pkg, artifactType.name)
 
             val properties = HashSet<String>().apply {
-                mProperties.captureProperties(this)
+                mProperties?.captureProperties(this)
             }
 
             // TODO ksp BindableBag

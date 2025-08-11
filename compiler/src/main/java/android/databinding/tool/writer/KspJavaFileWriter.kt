@@ -23,7 +23,8 @@ class KspJavaFileWriter(
             val outputStream = codeGenerator.createNewFile(
                 Dependencies(false),
                 packageName,
-                fileName
+                fileName,
+                extensionName = "java"
             )
             writer = OutputStreamWriter(outputStream, Charsets.UTF_8)
             writer.write(contents)
