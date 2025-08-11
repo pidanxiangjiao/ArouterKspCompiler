@@ -97,7 +97,7 @@ public class KspAnnotationAnalyzer extends ModelAnalyzer {
             if (typeElement == null) {
                 return null;
             }
-            declaredType = typeElement.asType(Collections.emptyList());
+            declaredType = typeElement.asStarProjectedType();
         } else {
             int templateCloseIndex = className.lastIndexOf('>');
             String paramStr = className.substring(templateOpenIndex + 1, templateCloseIndex);

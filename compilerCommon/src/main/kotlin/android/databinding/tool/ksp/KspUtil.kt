@@ -6,8 +6,10 @@ import com.google.devtools.ksp.KspExperimental
 import com.google.devtools.ksp.getAnnotationsByType
 import com.google.devtools.ksp.getClassDeclarationByName
 import com.google.devtools.ksp.processing.Resolver
+import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
+import com.google.devtools.ksp.symbol.KSDeclaration
 import com.google.devtools.ksp.symbol.KSType
 import com.google.devtools.ksp.symbol.KSTypeParameter
 import javax.lang.model.type.ArrayType
@@ -68,5 +70,7 @@ fun KSAnnotated.hasAnnotation(fqn: String): Boolean =
         fqn.endsWith(it.shortName.asString()) &&
                 it.annotationType.resolve().declaration.qualifiedName?.asString() == fqn
     }
+
+fun KSDeclaration.isDeclaredType(): Boolean = (this as? KSClassDeclaration)?.classKind == ClassKind.INTERFACE || (this as? KSClassDeclaration)?.classKind == ClassKind.CLASS
 
 val JVM_STATIC_ANNOTATION_FQN = "kotlin.jvm.JvmStatic"
