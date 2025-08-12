@@ -57,7 +57,7 @@ public class KspAnnotationAnalyzer extends ModelAnalyzer {
         PRIMITIVE_TYPES.put("long", mResolver.getBuiltIns().getLongType());
         PRIMITIVE_TYPES.put("float", mResolver.getBuiltIns().getFloatType());
         PRIMITIVE_TYPES.put("double", mResolver.getBuiltIns().getDoubleType());
-//        PRIMITIVE_TYPES.put("void", mResolver.getBuiltIns().getUnitType());
+        PRIMITIVE_TYPES.put("void", mResolver.getBuiltIns().getUnitType());
     }
 
     public static KspAnnotationAnalyzer get() {

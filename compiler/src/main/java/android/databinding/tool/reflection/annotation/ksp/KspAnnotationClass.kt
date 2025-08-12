@@ -1,12 +1,17 @@
 package android.databinding.tool.reflection.annotation.ksp
 
+import android.databinding.tool.ksp.getQualifiedName
 import android.databinding.tool.ksp.isDeclaredType
+import android.databinding.tool.reflection.ModelAnalyzer
 import android.databinding.tool.reflection.ModelClass
 import android.databinding.tool.reflection.ModelField
-import android.databinding.tool.reflection.ModelMethod
 import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSType
+import com.google.devtools.ksp.symbol.KSTypeArgument
+import com.google.devtools.ksp.symbol.KSTypeParameter
+import com.google.devtools.ksp.symbol.Nullability
+import com.google.devtools.ksp.symbol.Variance
 import com.squareup.kotlinpoet.ksp.toTypeName
 
 public class KspAnnotationClass(
@@ -18,26 +23,35 @@ public class KspAnnotationClass(
         get() = TODO("Not yet implemented")
     override val componentType: ModelClass?
         get() = TODO("Not yet implemented")
+
     override val isNullable: Boolean
-        get() = TODO("Not yet implemented")
-    override val isPrimitive: Boolean
-        get() = TODO("Not yet implemented")
+        get() = typeMirror.nullability == Nullability.NULLABLE
+
+    override val isPrimitive: Boolean = false
+
     override val isBoolean: Boolean
-        get() = TODO("Not yet implemented")
+        get() = typeMirror == (ModelAnalyzer.getInstance() as KspAnnotationAnalyzer).PRIMITIVE_TYPES["boolean"]
+
     override val isChar: Boolean
-        get() = TODO("Not yet implemented")
+        get() = typeMirror == (ModelAnalyzer.getInstance() as KspAnnotationAnalyzer).PRIMITIVE_TYPES["char"]
+
     override val isByte: Boolean
-        get() = TODO("Not yet implemented")
+        get() = typeMirror == (ModelAnalyzer.getInstance() as KspAnnotationAnalyzer).PRIMITIVE_TYPES["byte"]
+
     override val isShort: Boolean
-        get() = TODO("Not yet implemented")
+        get() = typeMirror == (ModelAnalyzer.getInstance() as KspAnnotationAnalyzer).PRIMITIVE_TYPES["short"]
+
     override val isInt: Boolean
-        get() = TODO("Not yet implemented")
+        get() = typeMirror == (ModelAnalyzer.getInstance() as KspAnnotationAnalyzer).PRIMITIVE_TYPES["int"]
+
     override val isLong: Boolean
-        get() = TODO("Not yet implemented")
+        get() = typeMirror == (ModelAnalyzer.getInstance() as KspAnnotationAnalyzer).PRIMITIVE_TYPES["long"]
+
     override val isFloat: Boolean
-        get() = TODO("Not yet implemented")
+        get() = typeMirror == (ModelAnalyzer.getInstance() as KspAnnotationAnalyzer).PRIMITIVE_TYPES["float"]
+
     override val isDouble: Boolean
-        get() = TODO("Not yet implemented")
+        get() = typeMirror == (ModelAnalyzer.getInstance() as KspAnnotationAnalyzer).PRIMITIVE_TYPES["double"]
 
 
     override val isGeneric by lazy(LazyThreadSafetyMode.NONE) {
@@ -63,11 +77,14 @@ public class KspAnnotationClass(
         }
     }
     override val isTypeVar: Boolean
-        get() = TODO("Not yet implemented")
+        get() = typeMirror.declaration is KSTypeParameter
+
     override val isWildcard: Boolean
-        get() = TODO("Not yet implemented")
+        get() = typeMirror is KSTypeArgument && (typeMirror as KSTypeArgument).variance == Variance.STAR
+
     override val isInterface: Boolean
         get() = TODO("Not yet implemented")
+
     override val isVoid: Boolean
         get() = TODO("Not yet implemented")
 
@@ -108,15 +125,15 @@ public class KspAnnotationClass(
 
 
     override fun toJavaCode(): String {
-        TODO("Not yet implemented")
+        return getQualifiedName(typeMirror)
     }
 
     override fun unbox(): ModelClass {
-        TODO("Not yet implemented")
+        return this
     }
 
     override fun box(): ModelClass {
-        TODO("Not yet implemented")
+        return this
     }
 
 

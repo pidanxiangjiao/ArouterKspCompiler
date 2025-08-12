@@ -23,6 +23,7 @@ import android.databinding.tool.reflection.ModelAnalyzer;
 import android.databinding.tool.reflection.ModelClass;
 import android.databinding.tool.reflection.ModelMethod;
 import android.databinding.tool.reflection.annotation.AnnotationTypeUtil;
+import android.databinding.tool.reflection.annotation.ksp.KspAnnotationClass;
 import android.databinding.tool.util.GenerationalClassUtil;
 import android.databinding.tool.util.L;
 import android.databinding.tool.util.Preconditions;
@@ -287,7 +288,9 @@ public class SetterStore {
 
 
     private static ModelClass eraseType(ModelClass modelClass) {
-        if (hasTypeVar(modelClass)) {
+        if(modelClass instanceof KspAnnotationClass) {
+            return modelClass.erasure();
+        } if (hasTypeVar(modelClass)) {
             return modelClass.erasure();
         } else {
             return modelClass;
