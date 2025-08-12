@@ -16,7 +16,9 @@
 
 package android.databinding.tool
 
+import android.databinding.tool.ksp.findAnnotationWithType
 import androidx.databinding.Bindable
+import com.google.devtools.ksp.symbol.KSFunctionDeclaration
 import java.lang.reflect.Field
 import java.lang.reflect.Method
 import javax.lang.model.element.Element
@@ -27,6 +29,11 @@ import android.databinding.Bindable as LegacyBindable
  */
 class BindableCompat(val dependencies : Array<String>) {
     companion object {
+        @JvmStatic
+        fun extractFrom(element : KSFunctionDeclaration) : BindableCompat? {
+            return extractSupport(element) ?: extractAndroidX(element)
+        }
+
         @JvmStatic
         fun extractFrom(element : Element) : BindableCompat? {
             return extractSupport(element) ?: extractAndroidX(element)
@@ -56,6 +63,14 @@ class BindableCompat(val dependencies : Array<String>) {
 
         private fun extractSupport(method : Method): BindableCompat? {
             return method.getAnnotation(LegacyBindable::class.java)?.toCompat()
+        }
+
+        private fun extractAndroidX(method: KSFunctionDeclaration): BindableCompat? {
+            return method.findAnnotationWithType<Bindable>()?.toCompat()
+        }
+
+        private fun extractSupport(method : KSFunctionDeclaration): BindableCompat? {
+            return method.findAnnotationWithType<LegacyBindable>()?.toCompat()
         }
 
         private fun extractAndroidX(field: Field): BindableCompat? {

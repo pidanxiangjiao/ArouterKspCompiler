@@ -8,8 +8,6 @@ import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSType
 import com.squareup.kotlinpoet.ksp.toTypeName
-import com.google.devtools.ksp.symbol.KSDeclaration
-import com.squareup.kotlinpoet.ksp.toClassName
 
 public class KspAnnotationClass(
     @JvmField
@@ -92,10 +90,22 @@ public class KspAnnotationClass(
 
     override val jniDescription: String
         get() = TODO("Not yet implemented")
+
+
     override val allFields: List<ModelField>
         get() = TODO("Not yet implemented")
-    override val allMethods: List<ModelMethod>
-        get() = TODO("Not yet implemented")
+
+
+    override val allMethods by lazy(LazyThreadSafetyMode.NONE) {
+        if (typeMirror.declaration.isDeclaredType()) {
+            (typeMirror.declaration as KSClassDeclaration).getAllFunctions().map { ksFunction ->
+                KspAnnotationMethod(typeMirror, ksFunction)
+            }.toList()
+        } else {
+            emptyList()
+        }
+    }
+
 
     override fun toJavaCode(): String {
         TODO("Not yet implemented")

@@ -4,18 +4,15 @@ package android.databinding.tool.ksp
 
 import com.google.devtools.ksp.KspExperimental
 import com.google.devtools.ksp.getAnnotationsByType
-import com.google.devtools.ksp.getClassDeclarationByName
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSDeclaration
+import com.google.devtools.ksp.symbol.KSFunctionDeclaration
 import com.google.devtools.ksp.symbol.KSType
 import com.google.devtools.ksp.symbol.KSTypeParameter
-import javax.lang.model.type.ArrayType
-import javax.lang.model.type.DeclaredType
-import javax.lang.model.type.TypeKind
-import javax.lang.model.type.TypeMirror
+import com.google.devtools.ksp.symbol.Modifier
 
 @OptIn(KspExperimental::class)
 internal inline fun <reified T : Annotation> KSAnnotated.findAnnotationWithType(): T? {
@@ -72,5 +69,8 @@ fun KSAnnotated.hasAnnotation(fqn: String): Boolean =
     }
 
 fun KSDeclaration.isDeclaredType(): Boolean = (this as? KSClassDeclaration)?.classKind == ClassKind.INTERFACE || (this as? KSClassDeclaration)?.classKind == ClassKind.CLASS
+
+fun KSFunctionDeclaration.isStatic(): Boolean = this.modifiers.contains(Modifier.JAVA_STATIC)
+        || this.hasAnnotation(JVM_STATIC_ANNOTATION_FQN)
 
 val JVM_STATIC_ANNOTATION_FQN = "kotlin.jvm.JvmStatic"

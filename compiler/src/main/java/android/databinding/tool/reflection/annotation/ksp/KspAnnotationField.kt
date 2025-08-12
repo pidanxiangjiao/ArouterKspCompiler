@@ -13,84 +13,63 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package android.databinding.tool.reflection.annotation.ksp;
+package android.databinding.tool.reflection.annotation.ksp
 
-import android.databinding.tool.BindableCompat;
-import android.databinding.tool.reflection.ModelClass;
-import android.databinding.tool.reflection.ModelField;
-import android.databinding.tool.reflection.annotation.AnnotationAnalyzer;
-import android.databinding.tool.reflection.annotation.AnnotationClass;
+import android.databinding.tool.BindableCompat
+import android.databinding.tool.BindableCompat.Companion.extractFrom
+import android.databinding.tool.reflection.ModelClass
+import android.databinding.tool.reflection.ModelField
+import android.databinding.tool.reflection.annotation.AnnotationAnalyzer
+import android.databinding.tool.reflection.annotation.AnnotationClass
+import javax.lang.model.element.Modifier
+import javax.lang.model.element.VariableElement
+import javax.lang.model.type.DeclaredType
 
-import javax.lang.model.element.Modifier;
-import javax.lang.model.element.VariableElement;
-import javax.lang.model.type.DeclaredType;
-import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.Types;
-
-
-class KspAnnotationField extends ModelField {
-
-    final VariableElement mField;
-
-    final DeclaredType mDeclaredClass;
-
-    public KspAnnotationField(DeclaredType declaredClass, VariableElement field) {
-        mDeclaredClass = declaredClass;
-        mField = field;
+internal class KspAnnotationField(val mDeclaredClass: DeclaredType, val mField: VariableElement) :
+    ModelField() {
+    override fun toString(): String {
+        return mField.toString()
     }
 
-    @Override
-    public String toString() {
-        return mField.toString();
+    override fun getName(): String {
+        return mField.simpleName.toString()
     }
 
-    @Override
-    public String getName() {
-        return mField.getSimpleName().toString();
+    override fun isPublic(): Boolean {
+        return mField.modifiers.contains(Modifier.PUBLIC)
     }
 
-    @Override
-    public boolean isPublic() {
-        return mField.getModifiers().contains(Modifier.PUBLIC);
+    override fun isStatic(): Boolean {
+        return mField.modifiers.contains(Modifier.STATIC)
     }
 
-    @Override
-    public boolean isStatic() {
-        return mField.getModifiers().contains(Modifier.STATIC);
+    override fun isFinal(): Boolean {
+        return mField.modifiers.contains(Modifier.FINAL)
     }
 
-    @Override
-    public boolean isFinal() {
-        return mField.getModifiers().contains(Modifier.FINAL);
+    override fun getFieldType(): ModelClass {
+        val typeUtils = AnnotationAnalyzer.get().typeUtils
+        val type = typeUtils.asMemberOf(mDeclaredClass, mField)
+        return AnnotationClass(type)
     }
 
-    @Override
-    public ModelClass getFieldType() {
-        Types typeUtils = AnnotationAnalyzer.get().getTypeUtils();
-        TypeMirror type = typeUtils.asMemberOf(mDeclaredClass, mField);
-        return new AnnotationClass(type);
+    override fun getBindableAnnotation(): BindableCompat? {
+        return extractFrom(mField)
     }
 
-    @Override
-    public BindableCompat getBindableAnnotation() {
-        return BindableCompat.extractFrom(mField);
+    override fun hashCode(): Int {
+        return mField.simpleName.hashCode()
     }
 
-    @Override
-    public int hashCode() {
-        return mField.getSimpleName().hashCode();
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-        if (obj instanceof KspAnnotationField) {
-            KspAnnotationField that = (KspAnnotationField) obj;
-            Types typeUtils = AnnotationAnalyzer.get().getTypeUtils();
+    override fun equals(obj: Any?): Boolean {
+        if (obj is KspAnnotationField) {
+            val that = obj
+            val typeUtils = AnnotationAnalyzer.get().typeUtils
             return typeUtils.isSameType(mDeclaredClass, that.mDeclaredClass)
                     && typeUtils.isSameType(mField.asType(), that.mField.asType())
-                    && mField.getSimpleName().equals(that.mField.getSimpleName());
+                    && mField.simpleName == that.mField.simpleName
         } else {
-            return false;
+            return false
         }
     }
 }
