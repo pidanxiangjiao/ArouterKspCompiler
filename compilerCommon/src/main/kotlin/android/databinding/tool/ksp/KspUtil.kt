@@ -70,6 +70,8 @@ fun KSAnnotated.hasAnnotation(fqn: String): Boolean =
 
 fun KSDeclaration.isDeclaredType(): Boolean = (this as? KSClassDeclaration)?.classKind == ClassKind.INTERFACE || (this as? KSClassDeclaration)?.classKind == ClassKind.CLASS
 
+fun KSDeclaration.isInterface(): Boolean = (this as? KSClassDeclaration)?.classKind == ClassKind.INTERFACE
+
 fun KSFunctionDeclaration.isStatic(): Boolean = this.modifiers.contains(Modifier.JAVA_STATIC)
         || this.hasAnnotation(JVM_STATIC_ANNOTATION_FQN)
 

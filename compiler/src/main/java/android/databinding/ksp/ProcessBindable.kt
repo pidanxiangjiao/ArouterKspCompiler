@@ -23,8 +23,8 @@ import com.google.devtools.ksp.symbol.KSPropertyDeclaration
 //import javax.lang.model.element.VariableElement
 
 class ProcessBindable : ProcessBindable() {
-    private var mProperties: Intermediate? = null
-    private val mLayoutVariables = HashMap<String, HashSet<String>>()
+//    private var mProperties: Intermediate? = null
+//    private val mLayoutVariables = HashMap<String, HashSet<String>>()
 
     private var mResolver : Resolver? = null
 

@@ -2,6 +2,7 @@ package android.databinding.tool.reflection.annotation.ksp
 
 import android.databinding.tool.ksp.getQualifiedName
 import android.databinding.tool.ksp.isDeclaredType
+import android.databinding.tool.ksp.isInterface
 import android.databinding.tool.reflection.ModelAnalyzer
 import android.databinding.tool.reflection.ModelClass
 import android.databinding.tool.reflection.ModelField
@@ -20,7 +21,8 @@ public class KspAnnotationClass(
 ) : ModelClass() {
 
     override val isArray: Boolean
-        get() = TODO("Not yet implemented")
+        get() = typeMirror == (ModelAnalyzer.getInstance() as KspAnnotationAnalyzer).kspResolver.builtIns.arrayType
+
     override val componentType: ModelClass?
         get() = TODO("Not yet implemented")
 
@@ -82,11 +84,12 @@ public class KspAnnotationClass(
     override val isWildcard: Boolean
         get() = typeMirror is KSTypeArgument && (typeMirror as KSTypeArgument).variance == Variance.STAR
 
-    override val isInterface: Boolean
-        get() = TODO("Not yet implemented")
+    override val isInterface by lazy(LazyThreadSafetyMode.NONE) {
+        typeMirror.declaration.isInterface()
+    }
 
     override val isVoid: Boolean
-        get() = TODO("Not yet implemented")
+        get() = typeMirror == (ModelAnalyzer.getInstance() as KspAnnotationAnalyzer).kspResolver.builtIns.unitType
 
     override val superclass by lazy(LazyThreadSafetyMode.NONE) {
         val superClass: KSType? = if (typeMirror.declaration.isDeclaredType()) {

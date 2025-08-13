@@ -48,8 +48,8 @@ import javax.lang.model.util.Types;
 
 // binding app info and library info are necessary to trigger this.
 public class ProcessBindable extends ProcessingStep implements BindableHolder {
-    private Intermediate mProperties;
-    private HashMap<String, HashSet<String>> mLayoutVariables = new HashMap<>();
+    protected Intermediate mProperties;
+    protected HashMap<String, HashSet<String>> mLayoutVariables = new HashMap<>();
 
     @Override
     public boolean onHandleKspStep(Resolver roundEnvironment, SymbolProcessorEnvironment processingEnvironment, CompilerArguments args) {
