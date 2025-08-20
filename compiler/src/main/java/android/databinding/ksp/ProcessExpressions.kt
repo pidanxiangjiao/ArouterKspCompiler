@@ -148,7 +148,18 @@ class ProcessExpressions: ProcessingStep() {
                 compilerArgs.exportClassListOutFile, out
             )
             try {
-                FileUtils.write(compilerArgs.exportClassListOutFile, out)
+//                FileUtils.write(compilerArgs.exportClassListOutFile, out) //TODO ksp
+                val exportFile = compilerArgs.exportClassListOutFile
+                val parentDir = exportFile?.parentFile ?: throw IOException("Parent directory is null")
+
+                // 清空或创建目录
+                if (parentDir.exists()) {
+                    parentDir.deleteRecursively()
+                } else {
+                    parentDir.mkdirs()
+                }
+                val directoryNamedFile = File(parentDir, parentDir.name)
+                FileUtils.write(directoryNamedFile, out)
             } catch (e: IOException) {
                 L.e(e, "Cannot create list of written classes")
             }

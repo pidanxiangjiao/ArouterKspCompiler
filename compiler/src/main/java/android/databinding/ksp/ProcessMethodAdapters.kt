@@ -180,7 +180,7 @@ class ProcessMethodAdapters : ProcessingStep() {
         resolver: Resolver
     ): Boolean {
         val parameters = executableElement.parameters
-        val viewElement = resolver.getClassDeclarationByName(resolver.getKSNameFromString("android.view.View"))?.asStarProjectedType()
+        val viewElement = resolver.getClassDeclarationByName(resolver.getKSNameFromString("android.view.View"))?.asStarProjectedType()?.makeNullable()
         if (parameters.size < 2) {
             return false // Validation will fail in the caller
         }
