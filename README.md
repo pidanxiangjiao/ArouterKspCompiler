@@ -23,3 +23,7 @@ Issue List
 Task :bizlib:compileDebugJavaWithJavac output->/bizlib/build/intermediates/data_binding_export_class_list/debug/compileDebugJavaWithJavac/out.jar
 
 FileUtils.write(compilerArgs.getExportClassListOutFile(), out)  
+
+
+2.An operation is not implemented: Not yet implemented
+getAllFields
