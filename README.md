@@ -27,3 +27,5 @@ FileUtils.write(compilerArgs.getExportClassListOutFile(), out)
 
 2.An operation is not implemented: Not yet implemented
 getAllFields
+./gradlew :publishLocal
+

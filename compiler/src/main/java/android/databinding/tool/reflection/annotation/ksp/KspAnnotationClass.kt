@@ -6,6 +6,7 @@ import android.databinding.tool.ksp.isInterface
 import android.databinding.tool.reflection.ModelAnalyzer
 import android.databinding.tool.reflection.ModelClass
 import android.databinding.tool.reflection.ModelField
+import android.databinding.tool.reflection.annotation.AnnotationField
 import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSType
@@ -14,6 +15,10 @@ import com.google.devtools.ksp.symbol.KSTypeParameter
 import com.google.devtools.ksp.symbol.Nullability
 import com.google.devtools.ksp.symbol.Variance
 import com.squareup.kotlinpoet.ksp.toTypeName
+import javax.lang.model.element.TypeElement
+import javax.lang.model.type.DeclaredType
+import javax.lang.model.type.TypeKind
+import javax.lang.model.util.ElementFilter
 
 public class KspAnnotationClass(
     @JvmField
@@ -112,9 +117,16 @@ public class KspAnnotationClass(
         get() = TODO("Not yet implemented")
 
 
-    override val allFields: List<ModelField>
-        get() = TODO("Not yet implemented")
 
+    override val allFields by lazy(LazyThreadSafetyMode.NONE) {
+        if (typeMirror.declaration.isDeclaredType()) {
+            (typeMirror.declaration as KSClassDeclaration).getAllProperties().map { prop ->
+                KspAnnotationField(typeMirror, prop)
+            }.toList()
+        } else {
+            emptyList()
+        }
+    }
 
     override val allMethods by lazy(LazyThreadSafetyMode.NONE) {
         if (typeMirror.declaration.isDeclaredType()) {

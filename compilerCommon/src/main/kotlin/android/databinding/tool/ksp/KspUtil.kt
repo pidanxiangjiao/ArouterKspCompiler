@@ -72,7 +72,7 @@ fun KSDeclaration.isDeclaredType(): Boolean = (this as? KSClassDeclaration)?.cla
 
 fun KSDeclaration.isInterface(): Boolean = (this as? KSClassDeclaration)?.classKind == ClassKind.INTERFACE
 
-fun KSFunctionDeclaration.isStatic(): Boolean = this.modifiers.contains(Modifier.JAVA_STATIC)
+fun KSDeclaration.isStatic(): Boolean = this.modifiers.contains(Modifier.JAVA_STATIC)
         || this.hasAnnotation(JVM_STATIC_ANNOTATION_FQN)
 
 val JVM_STATIC_ANNOTATION_FQN = "kotlin.jvm.JvmStatic"

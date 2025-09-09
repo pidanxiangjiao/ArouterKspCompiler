@@ -33,7 +33,7 @@ class ProcessExpressions: ProcessingStep() {
         processingEnvironment: SymbolProcessorEnvironment,
         args: CompilerArguments
     ): Boolean {
-        try {
+//        try {
             val resourceBundle = ResourceBundle(
                 args.modulePackage,
                 ModelAnalyzer.getInstance().libTypes.useAndroidX
@@ -91,14 +91,14 @@ class ProcessExpressions: ProcessingStep() {
             mine.appendTo(resourceBundle, true)
 
             // generate resource bundle
-            try {
+//            try {
                 writeResourceBundle(resourceBundle, args, infoLog, v1CompatChef)
-            } catch (t: Throwable) {
-                L.e(t, "cannot generate view binders")
-            }
-        } catch (e: LoggedErrorException) {
-            // This will be logged later
-        }
+//            } catch (t: Throwable) {
+//                L.e(t, "cannot generate view binders")
+//            }
+//        } catch (e: LoggedErrorException) {
+//            // This will be logged later
+//        }
         return true
 
     }

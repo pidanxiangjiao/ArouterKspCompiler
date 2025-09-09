@@ -17,16 +17,23 @@ package android.databinding.tool.reflection.annotation.ksp
 
 import android.databinding.tool.BindableCompat
 import android.databinding.tool.BindableCompat.Companion.extractFrom
+import android.databinding.tool.ksp.isInterface
+import android.databinding.tool.ksp.isStatic
 import android.databinding.tool.reflection.ModelClass
 import android.databinding.tool.reflection.ModelField
-import android.databinding.tool.reflection.annotation.AnnotationAnalyzer
-import android.databinding.tool.reflection.annotation.AnnotationClass
-import javax.lang.model.element.Modifier
-import javax.lang.model.element.VariableElement
-import javax.lang.model.type.DeclaredType
+import com.google.devtools.ksp.isPublic
+import com.google.devtools.ksp.symbol.KSPropertyDeclaration
+import com.google.devtools.ksp.symbol.KSType
+import com.google.devtools.ksp.symbol.Modifier
 
-internal class KspAnnotationField(val mDeclaredClass: DeclaredType, val mField: VariableElement) :
+class KspAnnotationField(val mDeclaredClass: KSType, val mField: KSPropertyDeclaration) :
     ModelField() {
+
+    val fieldKspType by lazy(LazyThreadSafetyMode.NONE) {
+        mField.type.resolve()
+    }
+
+
     override fun toString(): String {
         return mField.toString()
     }
@@ -36,21 +43,20 @@ internal class KspAnnotationField(val mDeclaredClass: DeclaredType, val mField: 
     }
 
     override fun isPublic(): Boolean {
-        return mField.modifiers.contains(Modifier.PUBLIC)
+        return mField.isPublic()
     }
 
     override fun isStatic(): Boolean {
-        return mField.modifiers.contains(Modifier.STATIC)
+        return mField.isStatic()
     }
 
     override fun isFinal(): Boolean {
-        return mField.modifiers.contains(Modifier.FINAL)
+        if (Modifier.FINAL in mField.modifiers) return true
+        return !mField.isMutable
     }
 
     override fun getFieldType(): ModelClass {
-        val typeUtils = AnnotationAnalyzer.get().typeUtils
-        val type = typeUtils.asMemberOf(mDeclaredClass, mField)
-        return AnnotationClass(type)
+        return KspAnnotationClass(fieldKspType)
     }
 
     override fun getBindableAnnotation(): BindableCompat? {
@@ -64,9 +70,8 @@ internal class KspAnnotationField(val mDeclaredClass: DeclaredType, val mField: 
     override fun equals(obj: Any?): Boolean {
         if (obj is KspAnnotationField) {
             val that = obj
-            val typeUtils = AnnotationAnalyzer.get().typeUtils
-            return typeUtils.isSameType(mDeclaredClass, that.mDeclaredClass)
-                    && typeUtils.isSameType(mField.asType(), that.mField.asType())
+            return mDeclaredClass.equals(that.mDeclaredClass)
+                    && fieldKspType.equals(that.fieldKspType)
                     && mField.simpleName == that.mField.simpleName
         } else {
             return false
