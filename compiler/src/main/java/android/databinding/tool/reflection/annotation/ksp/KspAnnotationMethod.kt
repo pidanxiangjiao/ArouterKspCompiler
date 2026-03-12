@@ -93,7 +93,7 @@ class KspAnnotationMethod(
     }
 
     override fun getName(): String {
-        return mExecutableElement.simpleName.toString()
+        return mExecutableElement.simpleName.asString()
     }
 
     override fun getReturnType(args: List<ModelClass>): ModelClass {

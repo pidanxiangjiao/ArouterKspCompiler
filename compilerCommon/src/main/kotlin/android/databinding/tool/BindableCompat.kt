@@ -32,12 +32,14 @@ class BindableCompat(val dependencies : Array<String>) {
     companion object {
         @JvmStatic
         fun extractFrom(element : KSFunctionDeclaration) : BindableCompat? {
-            return extractSupport(element) ?: extractAndroidX(element)
+//            return extractSupport(element) ?: extractAndroidX(element)
+            return extractAndroidX(element)
         }
 
         @JvmStatic
         fun extractFrom(element : KSPropertyDeclaration) : BindableCompat? {
-            return extractSupport(element) ?: extractAndroidX(element)
+//            return extractSupport(element) ?: extractAndroidX(element)
+            return extractAndroidX(element)
         }
 
         @JvmStatic

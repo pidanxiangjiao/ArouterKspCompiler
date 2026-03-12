@@ -1,0 +1,756 @@
+Subject: [PATCH] add code
+add brfieldinfo
+add code
+add code
+add code
+---
+Index: compiler/src/main/java/android/databinding/annotationprocessor/BindableBag.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/compiler/src/main/java/android/databinding/annotationprocessor/BindableBag.kt b/compiler/src/main/java/android/databinding/annotationprocessor/BindableBag.kt
+--- a/compiler/src/main/java/android/databinding/annotationprocessor/BindableBag.kt	(revision 576a71efd23ec0c3bf3f373146407c64ae36bc99)
++++ b/compiler/src/main/java/android/databinding/annotationprocessor/BindableBag.kt	(revision 0aa8b817071401f9d34c54d20d133fc1b560300f)
+@@ -23,6 +23,7 @@
+ import android.databinding.tool.FeaturePackageInfo
+ import android.databinding.tool.util.GenerationalClassUtil
+ import android.databinding.tool.util.L
++import com.google.devtools.ksp.processing.Resolver
+ import java.io.File
+ import javax.annotation.processing.ProcessingEnvironment
+ import javax.lang.model.util.ElementFilter
+@@ -41,7 +42,8 @@
+     private val compilerArgs: CompilerArguments,
+         // BR fields in curretn module
+     moduleProperties: Set<String>,
+-    private val env: ProcessingEnvironment) {
++    private val env: ProcessingEnvironment? = null,
++    private val kspResolver: Resolver? = null) {
+     // The BR fields we will generate.
+     val toBeGenerated: List<ModuleBR>
+     // The list of package names that are generated. We usually generate for all dependencies
+@@ -63,15 +65,18 @@
+         val modulePackageProps = createPackageProps(
+                 pkg = compilerArgs.modulePackage,
+                 properties = moduleProperties,
+-                captureValues = false)
++                captureValues = false,
++                compilerArgs = compilerArgs
++            )
+         val brFiles = loadPreviousBRFiles(
+                 generationalClassUtil = Context.generationalClassUtil!!,
+-                captureValues = true) + modulePackageProps
++                captureValues = true,
++                compilerArgs = compilerArgs) + modulePackageProps
+ 
+         val brPackagesToGenerate = if (compilerArgs.isFeature) {
+             // only generate BR id for current module + dependencies that are not inherited from
+             // other features.
+-            val featureBRFiles = loadPreviousBRFilesForFeature(captureValues = false)
++            val featureBRFiles = loadPreviousBRFilesForFeature(captureValues = false, compilerArgs)
+             featureBRFiles.map { it.pkg }.toSet() + compilerArgs.modulePackage
+         } else {
+             // generate BR for all dependencies
+@@ -125,22 +130,49 @@
+      * Convert Bindable list in this module into PackageProps class
+      */
+     private fun createPackageProps(pkg: String, properties: Set<String>,
+-                                   captureValues: Boolean): PackageProps {
++                                   captureValues: Boolean, compilerArgs: CompilerArguments): PackageProps {
+         val processed = if (captureValues) {
+             // load class and extract value
+-            //TODO ksp
+-            val typeElement = env.elementUtils.getTypeElement(pkg + ".BR")
+-            if (typeElement == null) {
+-                properties.map { Property(it, null) }
+-            } else {
+-                val fields = ElementFilter.fieldsIn(typeElement.enclosedElements)
+-                properties.map { prop ->
+-                    val value = fields.firstOrNull {
+-                        it.simpleName.toString() == prop
+-                    }?.constantValue as? Int // might happen with blaze
+-                    Property(prop, value)
++            if (compilerArgs.isKsp) {
++                kspResolver?.let { resolver ->
++                    properties.map { Property(it, null) }
++//                    val typeElement = resolver.getClassDeclarationByName(resolver.getKSNameFromString(pkg + ".BR"))
++//                    if (typeElement == null) {
++//                        properties.map { Property(it, null) }
++//                    } else {
++//                        //TODO ksp to test, To be implemented https://github.com/google/ksp/issues/579
++//                        val fields = typeElement.getAllProperties().toList()
++//                        properties.map { prop ->
++//                            val value = fields.firstOrNull { field ->
++//                                field.simpleName.asString() == prop
++//                            }?.constantValue as? Int // might happen with blaze
++//                            Property(prop, value)
++//                        }
++//                    }
++                } ?: run {
++                    throw RuntimeException("createPackageProps with null kspResolver")
++                }
++
++            } else {
++                env?.let {
++                    val typeElement = env.elementUtils.getTypeElement(pkg + ".BR")
++                    if (typeElement == null) {
++                        properties.map { Property(it, null) }
++                    } else {
++                        val fields = ElementFilter.fieldsIn(typeElement.enclosedElements)
++                        properties.map { prop ->
++                            val value = fields.firstOrNull {
++                                it.simpleName.toString() == prop
++                            }?.constantValue as? Int // might happen with blaze
++                            Property(prop, value)
++                        }
++                    }
++                }?: run {
++                    throw RuntimeException("createPackageProps with null ProcessingEnvironment")
+                 }
++
+             }
++
+         } else {
+             properties.map { Property(it, null) }
+         }
+@@ -151,10 +183,10 @@
+      * Load BR files which only exist as dependencies on the current feature so we need to
+      * generate their BR classes.
+      */
+-    private fun loadPreviousBRFilesForFeature(captureValues: Boolean): List<PackageProps> {
++    private fun loadPreviousBRFilesForFeature(captureValues: Boolean, compilerArgs: CompilerArguments): List<PackageProps> {
+         val inputFolder = compilerArgs.featureInfoDir ?: return emptyList()
+         val util = GenerationalClassUtil(inputFolder, null)
+-        return loadPreviousBRFiles(util, captureValues)
++        return loadPreviousBRFiles(util, captureValues, compilerArgs)
+     }
+ 
+     /**
+@@ -164,14 +196,15 @@
+      */
+     private fun loadPreviousBRFiles(
+             generationalClassUtil: GenerationalClassUtil,
+-            captureValues: Boolean)
++            captureValues: Boolean,
++            compilerArgs: CompilerArguments)
+             : List<PackageProps> {
+         val brFiles = generationalClassUtil
+                 .load(GenerationalClassUtil.ExtensionFilter.BR, Intermediate::class.java)
+         return brFiles
+                 .filter { compilerArgs.modulePackage != it.`package` }
+                 .map {
+-                    createPackageProps(it.`package`, it.getProperties(), captureValues)
++                    createPackageProps(it.`package`, it.getProperties(), captureValues, compilerArgs)
+                 }
+     }
+ 
+Index: compiler/src/main/java/android/databinding/annotationprocessor/ProcessBindable.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/compiler/src/main/java/android/databinding/annotationprocessor/ProcessBindable.java b/compiler/src/main/java/android/databinding/annotationprocessor/ProcessBindable.java
+--- a/compiler/src/main/java/android/databinding/annotationprocessor/ProcessBindable.java	(revision 576a71efd23ec0c3bf3f373146407c64ae36bc99)
++++ b/compiler/src/main/java/android/databinding/annotationprocessor/ProcessBindable.java	(revision 07836e480dc7699d0ded45cbcd35561583e4f8fd)
+@@ -152,10 +152,11 @@
+             L.d("************* Generating BR file %s. use final: %s", pkg, artifactType.name());
+             HashSet<String> properties = new HashSet<>();
+             mProperties.captureProperties(properties);
++            //TODO ksp BindableBag
+             BindableBag bindableBag = new BindableBag(
+                     compilerArgs,
+                     getProperties(mProperties),
+-                    processingEnv);
++                    processingEnv, null);
+             final JavaFileWriter writer = getWriter();
+             boolean useFinal = compilerArgs.isApp()
+                     || compilerArgs.isFeature()
+@@ -220,7 +221,7 @@
+                 propertyName.subSequence(1, propertyName.length());
+     }
+ 
+-    private void mergeLayoutVariables() {
++    protected void mergeLayoutVariables() {
+         for (String containingClass : mLayoutVariables.keySet()) {
+             for (String variable : mLayoutVariables.get(containingClass)) {
+                 mProperties.addProperty(containingClass, variable);
+@@ -228,7 +229,7 @@
+         }
+     }
+ 
+-    private static boolean prefixes(CharSequence sequence, String prefix) {
++    protected static boolean prefixes(CharSequence sequence, String prefix) {
+         boolean prefixes = false;
+         if (sequence.length() > prefix.length()) {
+             int count = prefix.length();
+@@ -267,7 +268,7 @@
+                 element.getReturnType().getKind() == TypeKind.BOOLEAN;
+     }
+ 
+-    interface Intermediate extends Serializable {
++    public interface Intermediate extends Serializable {
+ 
+         void captureProperties(Set<String> properties);
+ 
+@@ -278,7 +279,7 @@
+         String getPackage();
+     }
+ 
+-    static class IntermediateV1 implements Serializable, Intermediate {
++    public static class IntermediateV1 implements Serializable, Intermediate {
+         private static final long serialVersionUID = 2L;
+ 
+         private String mPackage;
+@@ -316,7 +317,7 @@
+         }
+     }
+ 
+-    static Set<String> getProperties(Intermediate intermediate) {
++    public static Set<String> getProperties(Intermediate intermediate) {
+         Set<String> out = new HashSet<>();
+         intermediate.captureProperties(out);
+         return out;
+Index: compiler/src/main/java/android/databinding/annotationprocessor/ProcessExpressionsFromV1Compat.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/compiler/src/main/java/android/databinding/annotationprocessor/ProcessExpressionsFromV1Compat.kt b/compiler/src/main/java/android/databinding/annotationprocessor/ProcessExpressionsFromV1Compat.kt
+--- a/compiler/src/main/java/android/databinding/annotationprocessor/ProcessExpressionsFromV1Compat.kt	(revision 576a71efd23ec0c3bf3f373146407c64ae36bc99)
++++ b/compiler/src/main/java/android/databinding/annotationprocessor/ProcessExpressionsFromV1Compat.kt	(revision 07836e480dc7699d0ded45cbcd35561583e4f8fd)
+@@ -52,9 +52,10 @@
+             return isModuleInV2Lookup.getOrPut(modulePackage) {
+                 val mapperClass = BindingMapperWriterV2.createMapperQName(modulePackage)
+                 // check if mapper exists for it
++                //TODO ksp to test
+                 val typeElement =
+                     (processingEnvironment?.elementUtils?.getTypeElement(mapperClass) != null)
+-                            || resolver?.getClassDeclarationByName(resolver.getKSNameFromString(mapperClass)) != null //TODO ksp
++                            || resolver?.getClassDeclarationByName(resolver.getKSNameFromString(mapperClass)) != null
+                 typeElement
+             }
+         }
+Index: compiler/src/main/java/android/databinding/ksp/DataBindingSymbolProcessor.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/compiler/src/main/java/android/databinding/ksp/DataBindingSymbolProcessor.kt b/compiler/src/main/java/android/databinding/ksp/DataBindingSymbolProcessor.kt
+--- a/compiler/src/main/java/android/databinding/ksp/DataBindingSymbolProcessor.kt	(revision 576a71efd23ec0c3bf3f373146407c64ae36bc99)
++++ b/compiler/src/main/java/android/databinding/ksp/DataBindingSymbolProcessor.kt	(revision 07836e480dc7699d0ded45cbcd35561583e4f8fd)
+@@ -19,7 +19,6 @@
+ 
+ import android.databinding.annotationprocessor.BindableBag
+ import android.databinding.annotationprocessor.Callback
+-import android.databinding.annotationprocessor.ProcessBindable
+ import android.databinding.annotationprocessor.ProcessingStep
+ import android.databinding.tool.CompilerArguments
+ import android.databinding.tool.CompilerChef
+@@ -29,7 +28,6 @@
+ import android.databinding.tool.processing.ScopedException
+ import android.databinding.tool.store.GenClassInfoLog
+ import android.databinding.tool.util.Preconditions
+-import android.databinding.tool.writer.AnnotationJavaFileWriter
+ import android.databinding.tool.writer.KspJavaFileWriter
+ import com.google.devtools.ksp.processing.Resolver
+ import com.google.devtools.ksp.processing.SymbolProcessor
+@@ -47,8 +45,11 @@
+ 
+     private var mProcessingSteps: List<ProcessingStep>? = null
+     private var mCompilerArgs: CompilerArguments? = null
++    private var mResolver: Resolver? = null
+ 
+     override fun process(resolver: Resolver): List<KSAnnotated> {
++        mResolver = resolver
++
+         if (mProcessingSteps == null) {
+             readArguments()
+             initProcessingSteps()
+@@ -89,9 +90,9 @@
+         val processBindable = ProcessBindable()
+         mProcessingSteps = listOf(
+             ProcessMethodAdapters(),
+-            //TODO ksp
++            //TODO ksp to test
+             ProcessExpressions(),
+-//            processBindable,
++            processBindable,
+         )
+         val dataBinderWriterCallback = object : Callback {
+             var chef: CompilerChef? = null
+@@ -119,8 +120,8 @@
+                     return
+                 }
+                 writtenMapper = true
+-                //TODO ksp
+-//                chef?.writeDataBinderMapper(processingEnv, mCompilerArgs, brVariableLookup, modulePackages)
++                //TODO ksp to test
++                chef?.writeDataBinderMapper(mResolver, mCompilerArgs, brVariableLookup, modulePackages)
+             }
+ 
+             override fun onBrWriterReady(
+@@ -133,10 +134,10 @@
+                 considerWritingMapper()
+             }
+         }
+-        //TODO ksp test
++        //TODO ksp to test
+         val javaFileWriter = KspJavaFileWriter(environment.codeGenerator)
+         mProcessingSteps?.forEach { step ->
+-            step.mJavaFileWriter = javaFileWriter //TODO ksp test
++            step.mJavaFileWriter = javaFileWriter
+             step.mCallback = dataBinderWriterCallback
+         }
+     }
+@@ -146,6 +147,7 @@
+         try {
+             val options = environment.options
+             mCompilerArgs = CompilerArguments.readFromOptions(options)
++            mCompilerArgs?.isKsp = true
+             KspLogger.logging("processor args: $mCompilerArgs")
+             ScopedException.encodeOutput(mCompilerArgs?.printEncodedErrorLogs?:false)
+         } catch (t: Throwable) {
+Index: compiler/src/main/java/android/databinding/ksp/ProcessBindable.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/compiler/src/main/java/android/databinding/ksp/ProcessBindable.kt b/compiler/src/main/java/android/databinding/ksp/ProcessBindable.kt
+new file mode 100644
+--- /dev/null	(revision db8fadca2f76652361745474577a6620f1352ccd)
++++ b/compiler/src/main/java/android/databinding/ksp/ProcessBindable.kt	(revision db8fadca2f76652361745474577a6620f1352ccd)
+@@ -0,0 +1,218 @@
++package android.databinding.ksp
++
++import android.databinding.annotationprocessor.BindableBag
++import android.databinding.annotationprocessor.ProcessBindable
++import android.databinding.tool.CompilerArguments
++import android.databinding.tool.LibTypes
++import android.databinding.tool.reflection.ModelAnalyzer
++import android.databinding.tool.util.GenerationalClassUtil
++import android.databinding.tool.util.L
++import android.databinding.tool.util.LoggedErrorException
++import android.databinding.tool.writer.BRWriter
++import com.google.devtools.ksp.processing.Resolver
++import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
++import com.google.devtools.ksp.symbol.ClassKind
++import com.google.devtools.ksp.symbol.KSClassDeclaration
++import com.google.devtools.ksp.symbol.KSDeclaration
++import com.google.devtools.ksp.symbol.KSFunctionDeclaration
++import com.google.devtools.ksp.symbol.KSPropertyDeclaration
++
++//import javax.lang.model.element.Element
++//import javax.lang.model.element.ElementKind
++//import javax.lang.model.element.ExecutableElement
++//import javax.lang.model.element.VariableElement
++
++class ProcessBindable : ProcessBindable() {
++    private lateinit var mProperties: Intermediate
++    private val mLayoutVariables = HashMap<String, HashSet<String>>()
++
++    private var mResolver : Resolver? = null
++
++    //TODO ksp
++    override fun onHandleKspStep(
++        resolver: Resolver,
++        processingEnvironment: SymbolProcessorEnvironment?,
++        args: CompilerArguments
++    ): Boolean {
++
++        mResolver = resolver
++
++        if (mProperties == null) {
++            mProperties = ProcessBindable.IntermediateV1(args.modulePackage)
++            mergeLayoutVariables()
++            mLayoutVariables.clear()
++
++            val libTypes = ModelAnalyzer.getInstance().libTypes
++            val observableType = resolver.getClassDeclarationByName(resolver.getKSNameFromString(libTypes.observable))
++
++            AnnotationUtil.getElementsAnnotatedWith(resolver, libTypes.bindableClass.name)
++                .forEach { element ->
++                    val parentElement = element.parentDeclaration as? KSClassDeclaration
++
++                    if (parentElement?.classKind == ClassKind.CLASS &&
++                        isGeneratedViewBinding(resolver, libTypes, parentElement)) {
++                        // Skip generated view bindings
++                        return@forEach
++                    }
++
++                    try {
++                        val enclosingElement = element.parentDeclaration as? KSClassDeclaration
++                        val kind = enclosingElement?.classKind
++                        if (kind != ClassKind.CLASS && kind != ClassKind.INTERFACE) {
++                            L.e("Bindable must be on a member field or method. The enclosing type is %s",
++                                    kind)
++                        }
++
++                        val enclosing = enclosingElement?.asStarProjectedType()
++                        enclosing?.let {
++                            if (observableType?.asStarProjectedType()?.isAssignableFrom(it) != true) {
++                                L.e("Bindable must be on a member in an Observable class. %s is not Observable",
++                                    enclosingElement?.simpleName)
++                            }
++                        }
++
++
++                        val name = getPropertyName(element)
++                        name?.let {
++                            checkNotNull(mProperties) {
++                                "Must receive app/library info before Bindable fields."
++                            }
++
++                            mProperties.addProperty(enclosingElement?.qualifiedName?.asString(), it)
++                        }
++                    } catch (e: LoggedErrorException) {
++                        // We'll get them later when we do the messages
++                    }
++                }
++
++            GenerationalClassUtil.get().write(
++                mProperties.getPackage(),
++                GenerationalClassUtil.ExtensionFilter.BR,
++                mProperties
++            )
++            generateBRClasses(resolver, args, mProperties.getPackage())
++        }
++
++        return true
++    }
++
++    private fun isGeneratedViewBinding(
++        resolver: Resolver,
++        libTypes: LibTypes,
++        element: KSClassDeclaration
++    ): Boolean {
++        // Note: Ideally, we'd search for the @Generated({ "Android Data Binding "}) annotation to
++        // know whether the target class was generated by us or not. However, that annotation was
++        // not introduced until Java 8, so the classes we really want to know about
++        // (".../generated/.../XyzBinding.java") are not annotated. As a secondary signal, we check
++        // if the class inherits from ViewDataBinding, which user-code is not expected to do.
++        //TODO ksp to test
++        val viewDataBinding = resolver.getClassDeclarationByName(resolver.getKSNameFromString(libTypes.viewDataBinding))?.asStarProjectedType()
++        return viewDataBinding?.isAssignableFrom(element.asStarProjectedType()) == true
++    }
++
++    private fun getPropertyName(element: KSDeclaration): String? {
++        return when (element) {
++            is KSPropertyDeclaration -> stripPrefixFromField(element)
++            is KSFunctionDeclaration -> stripPrefixFromMethod(element)
++            else -> {
++                L.e("@Bindable is not allowed on %s", element)
++                null
++            }
++        }
++    }
++
++    private fun stripPrefixFromField(element: KSPropertyDeclaration): String {
++        val name = element.simpleName.asString()
++        if (name.length >= 2) {
++            val firstChar = name[0]
++            val secondChar = name[1]
++            if (name.length > 2 && firstChar == 'm' && secondChar == '_') {
++                val thirdChar = name[2]
++                if (thirdChar.isJavaIdentifierStart()) {
++                    return "${thirdChar.lowercaseChar()}${name.subSequence(3, name.length)}"
++                }
++            } else if ((firstChar == 'm' && secondChar.isUpperCase()) ||
++                (firstChar == '_' && secondChar.isJavaIdentifierStart())) {
++                return "${secondChar.lowercaseChar()}${name.subSequence(2, name.length)}"
++            }
++        }
++        return name.toString()
++    }
++
++    private fun stripPrefixFromMethod(element: KSFunctionDeclaration): String? {
++        val name = element.simpleName.asString()
++        val propertyName = when {
++            isGetter(element) || isSetter(element) -> name.subSequence(3, name.length)
++            isBooleanGetter(element) -> name.subSequence(2, name.length)
++            else -> {
++                L.e("@Bindable associated with method must follow JavaBeans convention %s", element)
++                return null
++            }
++        }
++        val firstChar = propertyName[0]
++        return "${firstChar.lowercaseChar()}${propertyName.subSequence(1, propertyName.length)}"
++    }
++
++    private fun isGetter(element: KSFunctionDeclaration): Boolean {
++        val name = element.simpleName.asString()
++        return prefixes(name,"get") &&
++                name[3].isJavaIdentifierStart() &&
++                element.parameters.isEmpty() &&
++                element.returnType?.resolve() != mResolver?.builtIns?.unitType
++    }
++
++    private fun isSetter(element: KSFunctionDeclaration): Boolean {
++        val name = element.simpleName.asString()
++        return prefixes(name,"set") &&
++                name[3].isJavaIdentifierStart() &&
++                element.parameters.size == 1 &&
++                element.returnType?.resolve() == mResolver?.builtIns?.unitType
++    }
++
++    private fun isBooleanGetter(element: KSFunctionDeclaration): Boolean {
++        val name = element.simpleName.asString()
++        return prefixes(name,"is") &&
++                name[2].isJavaIdentifierStart() &&
++                element.parameters.isEmpty() &&
++                element.returnType?.resolve() == mResolver?.builtIns?.booleanType
++    }
++
++    private fun generateBRClasses(
++        processingEnv: Resolver,
++        compilerArgs: CompilerArguments,
++        pkg: String
++    ) {
++        try {
++            val artifactType = compilerArgs.artifactType
++            L.d("************* Generating BR file %s. use final: %s", pkg, artifactType.name)
++
++            val properties = HashSet<String>().apply {
++                mProperties.captureProperties(this)
++            }
++
++            // TODO ksp BindableBag
++            val bindableBag = BindableBag(
++                compilerArgs,
++                getProperties(mProperties),
++                kspResolver = processingEnv
++            )
++
++            val writer = writer
++            val useFinal = compilerArgs.isApp || compilerArgs.isFeature || compilerArgs.isTestVariant
++            val brWriter = BRWriter(useFinal)
++
++            bindableBag.toBeGenerated.forEach { brWithValues ->
++                val output = brWriter.write(brWithValues)
++                writer.writeToFile("${brWithValues.pkg}.BR", output)
++            }
++
++            mCallback.onBrWriterReady(
++                bindableBag.variableIdLookup,
++                bindableBag.writtenPackages
++            )
++        } catch (e: LoggedErrorException) {
++            // This will be logged later
++        }
++    }
++}
+\ No newline at end of file
+Index: compiler/src/main/java/android/databinding/ksp/ProcessExpressions.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/compiler/src/main/java/android/databinding/ksp/ProcessExpressions.kt b/compiler/src/main/java/android/databinding/ksp/ProcessExpressions.kt
+--- a/compiler/src/main/java/android/databinding/ksp/ProcessExpressions.kt	(revision 576a71efd23ec0c3bf3f373146407c64ae36bc99)
++++ b/compiler/src/main/java/android/databinding/ksp/ProcessExpressions.kt	(revision 07836e480dc7699d0ded45cbcd35561583e4f8fd)
+@@ -27,7 +27,7 @@
+ import javax.annotation.processing.RoundEnvironment
+ 
+ class ProcessExpressions: ProcessingStep() {
+-    //TODO ksp
++    //TODO ksp to test
+     override fun onHandleKspStep(
+         resolver: Resolver,
+         processingEnvironment: SymbolProcessorEnvironment,
+Index: compiler/src/main/java/android/databinding/tool/CompilerChef.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/compiler/src/main/java/android/databinding/tool/CompilerChef.java b/compiler/src/main/java/android/databinding/tool/CompilerChef.java
+--- a/compiler/src/main/java/android/databinding/tool/CompilerChef.java	(revision 576a71efd23ec0c3bf3f373146407c64ae36bc99)
++++ b/compiler/src/main/java/android/databinding/tool/CompilerChef.java	(revision 07836e480dc7699d0ded45cbcd35561583e4f8fd)
+@@ -31,6 +31,8 @@
+ import com.android.annotations.NonNull;
+ import com.android.annotations.Nullable;
+ import com.google.common.collect.Sets;
++import com.google.devtools.ksp.processing.Resolver;
++import com.google.devtools.ksp.symbol.KSClassDeclaration;
+ import com.squareup.javapoet.JavaFile;
+ import com.squareup.javapoet.TypeSpec;
+ import org.jetbrains.annotations.NotNull;
+@@ -235,6 +237,80 @@
+                     dbr.write(brValueLookup));
+         }
+     }
++    @NotNull
++    private SortedSet<String> getDirectDependencies(
++            Resolver processingEnv,
++            CompilerArguments compilerArgs,
++            List<String> modulePackages) {
++        TreeSet<String> explicitPkgs = compilerArgs.parseDirectDependencyPackages();
++        if (explicitPkgs != null) {
++            // used the value specified by the compiler
++            return Sets.newTreeSet(explicitPkgs);
++        }
++        return modulePackages.stream()
++                .filter(modulePackage -> {
++                    if (modulePackage.equals(compilerArgs.getModulePackage())) {
++                        // I'm not a dependency
++                        return false;
++                    }
++                    String mapper = BindingMapperWriterV2.createMapperQName(modulePackage);
++                    //TODO ksp to test
++                    KSClassDeclaration impl =
++                            processingEnv.getClassDeclarationByName(processingEnv.getKSNameFromString(mapper));
++                    return impl != null;
++                }).distinct().collect(Collectors.toCollection(TreeSet::new));
++    }
++    public void writeDataBinderMapper(
++            Resolver processingEnv,
++            CompilerArguments compilerArgs,
++            BindableBag.BRMapping brValueLookup,
++            List<String> modulePackages) {
++        if (compilerArgs.isEnableV2()) {
++            // figure out which mappers exists as they may not exist for v1 libs.
++            SortedSet<String> availableDependencyModules = getDirectDependencies(
++                    processingEnv, compilerArgs, modulePackages);
++            final boolean generateMapper;
++            if (compilerArgs.isApp()) {
++                // generate mapper for apps only if it is not test or enabled for tests.
++                generateMapper = !compilerArgs.isTestVariant() || compilerArgs.isEnabledForTests();
++            } else {
++                // always generate mapper for libs or features
++                generateMapper = true;
++            }
++            if (generateMapper) {
++                writeMapperForModule(compilerArgs, brValueLookup, availableDependencyModules);
++            }
++
++            // merged mapper is the one generated for the whole app that includes the mappers
++            // generated for individual modules.
++            final boolean generateMergedMapper;
++            if (compilerArgs.isApp()) {
++                generateMergedMapper = !compilerArgs.isTestVariant();
++            } else if (!compilerArgs.isFeature()) {
++                generateMergedMapper = compilerArgs.isTestVariant();
++            } else {
++                generateMergedMapper = false;
++            }
++            if (generateMergedMapper) {
++                if (mV1CompatChef != null) {
++                    // only generate v1 compat if we are generating the merged
++                    writeMapperForV1Compat(compilerArgs, brValueLookup);
++                }
++                writeMergedMapper(compilerArgs);
++            }
++        } else {
++            final String pkg = ModelAnalyzer.getInstance().libTypes.getBindingPackage();
++            final String mapperName = "DataBinderMapperImpl";
++
++            ensureDataBinder();
++            LibTypes libTypes = ModelAnalyzer.getInstance().libTypes;
++            BindingMapperWriter dbr = new BindingMapperWriter(pkg, mapperName,
++                    mDataBinder.getLayoutBinders(), compilerArgs, libTypes);
++            mFileWriter.writeToFile(
++                    pkg + "." + dbr.getClassName(),
++                    dbr.write(brValueLookup));
++        }
++    }
+ 
+     @NotNull
+     private SortedSet<String> getDirectDependencies(
+@@ -253,7 +329,6 @@
+                         return false;
+                     }
+                     String mapper = BindingMapperWriterV2.createMapperQName(modulePackage);
+-                    //TODO ksp
+                     TypeElement impl = processingEnv
+                             .getElementUtils()
+                             .getTypeElement(mapper);
+Index: compiler/src/main/java/android/databinding/tool/reflection/annotation/ksp/KspAnnotationTypeUtil.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/compiler/src/main/java/android/databinding/tool/reflection/annotation/ksp/KspAnnotationTypeUtil.java b/compiler/src/main/java/android/databinding/tool/reflection/annotation/ksp/KspAnnotationTypeUtil.java
+--- a/compiler/src/main/java/android/databinding/tool/reflection/annotation/ksp/KspAnnotationTypeUtil.java	(revision 576a71efd23ec0c3bf3f373146407c64ae36bc99)
++++ b/compiler/src/main/java/android/databinding/tool/reflection/annotation/ksp/KspAnnotationTypeUtil.java	(revision 07836e480dc7699d0ded45cbcd35561583e4f8fd)
+@@ -65,6 +65,7 @@
+     @Override
+     public String getDescription(ModelMethod modelMethod) {
+         // TODO use interface
++        //TODO ksp
+         AnnotationMethod method = ((AnnotationMethod) modelMethod);
+         return getExecutableDescription(
+                 method.mExecutableElement, method.mMethod);
+Index: compiler/src/main/java/android/databinding/tool/writer/AnnotationJavaFileWriter.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/compiler/src/main/java/android/databinding/tool/writer/AnnotationJavaFileWriter.java b/compiler/src/main/java/android/databinding/tool/writer/AnnotationJavaFileWriter.java
+--- a/compiler/src/main/java/android/databinding/tool/writer/AnnotationJavaFileWriter.java	(revision 576a71efd23ec0c3bf3f373146407c64ae36bc99)
++++ b/compiler/src/main/java/android/databinding/tool/writer/AnnotationJavaFileWriter.java	(revision 07836e480dc7699d0ded45cbcd35561583e4f8fd)
+@@ -37,7 +37,6 @@
+         Writer writer = null;
+         try {
+             L.d("writing file %s", canonicalName);
+-            //TODO ksp
+             JavaFileObject javaFileObject =
+                     mProcessingEnvironment.getFiler().createSourceFile(canonicalName);
+             writer = javaFileObject.openWriter();
+Index: compilerCommon/src/main/java/android/databinding/tool/CompilerArguments.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/compilerCommon/src/main/java/android/databinding/tool/CompilerArguments.kt b/compilerCommon/src/main/java/android/databinding/tool/CompilerArguments.kt
+--- a/compilerCommon/src/main/java/android/databinding/tool/CompilerArguments.kt	(revision 576a71efd23ec0c3bf3f373146407c64ae36bc99)
++++ b/compilerCommon/src/main/java/android/databinding/tool/CompilerArguments.kt	(revision 07836e480dc7699d0ded45cbcd35561583e4f8fd)
+@@ -105,6 +105,8 @@
+     val isFeature: Boolean
+         get() = artifactType == Type.FEATURE
+ 
++    var isKsp: Boolean = false
++
+     // returns null if not specified
+     fun parseDirectDependencyPackages() : TreeSet<String>? {
+         return directDependencyPackages?.let {
+Index: compilerCommon/src/main/kotlin/android/databinding/tool/BindingAdapterCompat.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/compilerCommon/src/main/kotlin/android/databinding/tool/BindingAdapterCompat.kt b/compilerCommon/src/main/kotlin/android/databinding/tool/BindingAdapterCompat.kt
+--- a/compilerCommon/src/main/kotlin/android/databinding/tool/BindingAdapterCompat.kt	(revision 576a71efd23ec0c3bf3f373146407c64ae36bc99)
++++ b/compilerCommon/src/main/kotlin/android/databinding/tool/BindingAdapterCompat.kt	(revision 07836e480dc7699d0ded45cbcd35561583e4f8fd)
+@@ -46,7 +46,7 @@
+ 
+         @JvmStatic
+         fun create(element : KSDeclaration) : BindingAdapterCompat {
+-            //TODO ksp
++            //TODO ksp to test
+ //            val support = element.findAnnotationWithType<android.databinding.BindingAdapter>()
+ //            if (support != null) {
+ //                return BindingAdapterCompat(
+Index: baseLibrary/src/main/java/androidx/databinding/BRFieldInfo.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/baseLibrary/src/main/java/androidx/databinding/BRFieldInfo.java b/baseLibrary/src/main/java/androidx/databinding/BRFieldInfo.java
+new file mode 100644
+--- /dev/null	(revision 6e918e25c8313596e87ad43b648e4666703e0495)
++++ b/baseLibrary/src/main/java/androidx/databinding/BRFieldInfo.java	(revision 6e918e25c8313596e87ad43b648e4666703e0495)
+@@ -0,0 +1,15 @@
++package androidx.databinding;
++
++import java.lang.annotation.ElementType;
++import java.lang.annotation.Target;
++import java.lang.annotation.Retention;
++import java.lang.annotation.RetentionPolicy;
++
++
++@Target(ElementType.FIELD)
++@Retention(RetentionPolicy.SOURCE)
++public @interface BRFieldInfo {
++    String name();
++    int value();
++}
++

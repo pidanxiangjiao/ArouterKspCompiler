@@ -1,0 +1,224 @@
+Subject: [PATCH] add code
+---
+Index: compiler/src/main/java/android/databinding/tool/reflection/annotation/ksp/KspAnnotationClass.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/compiler/src/main/java/android/databinding/tool/reflection/annotation/ksp/KspAnnotationClass.kt b/compiler/src/main/java/android/databinding/tool/reflection/annotation/ksp/KspAnnotationClass.kt
+--- a/compiler/src/main/java/android/databinding/tool/reflection/annotation/ksp/KspAnnotationClass.kt	(revision e0cc68a43269af43e103d9065d855b73873ec2d8)
++++ b/compiler/src/main/java/android/databinding/tool/reflection/annotation/ksp/KspAnnotationClass.kt	(date 1757411792593)
+@@ -6,6 +6,7 @@
+ import android.databinding.tool.reflection.ModelAnalyzer
+ import android.databinding.tool.reflection.ModelClass
+ import android.databinding.tool.reflection.ModelField
++import android.databinding.tool.reflection.annotation.AnnotationField
+ import com.google.devtools.ksp.symbol.ClassKind
+ import com.google.devtools.ksp.symbol.KSClassDeclaration
+ import com.google.devtools.ksp.symbol.KSType
+@@ -14,6 +15,10 @@
+ import com.google.devtools.ksp.symbol.Nullability
+ import com.google.devtools.ksp.symbol.Variance
+ import com.squareup.kotlinpoet.ksp.toTypeName
++import javax.lang.model.element.TypeElement
++import javax.lang.model.type.DeclaredType
++import javax.lang.model.type.TypeKind
++import javax.lang.model.util.ElementFilter
+ 
+ public class KspAnnotationClass(
+     @JvmField
+@@ -112,9 +117,16 @@
+         get() = TODO("Not yet implemented")
+ 
+ 
+-    override val allFields: List<ModelField>
+-        get() = TODO("Not yet implemented")
+ 
++    override val allFields by lazy(LazyThreadSafetyMode.NONE) {
++        if (typeMirror.declaration.isDeclaredType()) {
++            (typeMirror.declaration as KSClassDeclaration).getAllProperties().map { prop ->
++                KspAnnotationField(typeMirror, prop)
++            }.toList()
++        } else {
++            emptyList()
++        }
++    }
+ 
+     override val allMethods by lazy(LazyThreadSafetyMode.NONE) {
+         if (typeMirror.declaration.isDeclaredType()) {
+Index: compiler/src/main/java/android/databinding/tool/reflection/annotation/ksp/KspAnnotationField.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/compiler/src/main/java/android/databinding/tool/reflection/annotation/ksp/KspAnnotationField.kt b/compiler/src/main/java/android/databinding/tool/reflection/annotation/ksp/KspAnnotationField.kt
+--- a/compiler/src/main/java/android/databinding/tool/reflection/annotation/ksp/KspAnnotationField.kt	(revision e0cc68a43269af43e103d9065d855b73873ec2d8)
++++ b/compiler/src/main/java/android/databinding/tool/reflection/annotation/ksp/KspAnnotationField.kt	(date 1757412881225)
+@@ -17,16 +17,23 @@
+ 
+ import android.databinding.tool.BindableCompat
+ import android.databinding.tool.BindableCompat.Companion.extractFrom
++import android.databinding.tool.ksp.isInterface
++import android.databinding.tool.ksp.isStatic
+ import android.databinding.tool.reflection.ModelClass
+ import android.databinding.tool.reflection.ModelField
+-import android.databinding.tool.reflection.annotation.AnnotationAnalyzer
+-import android.databinding.tool.reflection.annotation.AnnotationClass
+-import javax.lang.model.element.Modifier
+-import javax.lang.model.element.VariableElement
+-import javax.lang.model.type.DeclaredType
++import com.google.devtools.ksp.isPublic
++import com.google.devtools.ksp.symbol.KSPropertyDeclaration
++import com.google.devtools.ksp.symbol.KSType
++import com.google.devtools.ksp.symbol.Modifier
+ 
+-internal class KspAnnotationField(val mDeclaredClass: DeclaredType, val mField: VariableElement) :
++class KspAnnotationField(val mDeclaredClass: KSType, val mField: KSPropertyDeclaration) :
+     ModelField() {
++
++    val fieldKspType by lazy(LazyThreadSafetyMode.NONE) {
++        mField.type.resolve()
++    }
++
++
+     override fun toString(): String {
+         return mField.toString()
+     }
+@@ -36,21 +43,20 @@
+     }
+ 
+     override fun isPublic(): Boolean {
+-        return mField.modifiers.contains(Modifier.PUBLIC)
++        return mField.isPublic()
+     }
+ 
+     override fun isStatic(): Boolean {
+-        return mField.modifiers.contains(Modifier.STATIC)
++        return mField.isStatic()
+     }
+ 
+     override fun isFinal(): Boolean {
+-        return mField.modifiers.contains(Modifier.FINAL)
++        if (Modifier.FINAL in mField.modifiers) return true
++        return !mField.isMutable
+     }
+ 
+     override fun getFieldType(): ModelClass {
+-        val typeUtils = AnnotationAnalyzer.get().typeUtils
+-        val type = typeUtils.asMemberOf(mDeclaredClass, mField)
+-        return AnnotationClass(type)
++        return KspAnnotationClass(fieldKspType)
+     }
+ 
+     override fun getBindableAnnotation(): BindableCompat? {
+@@ -64,9 +70,8 @@
+     override fun equals(obj: Any?): Boolean {
+         if (obj is KspAnnotationField) {
+             val that = obj
+-            val typeUtils = AnnotationAnalyzer.get().typeUtils
+-            return typeUtils.isSameType(mDeclaredClass, that.mDeclaredClass)
+-                    && typeUtils.isSameType(mField.asType(), that.mField.asType())
++            return mDeclaredClass.equals(that.mDeclaredClass)
++                    && fieldKspType.equals(that.fieldKspType)
+                     && mField.simpleName == that.mField.simpleName
+         } else {
+             return false
+Index: compiler/src/main/java/android/databinding/ksp/ProcessExpressions.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/compiler/src/main/java/android/databinding/ksp/ProcessExpressions.kt b/compiler/src/main/java/android/databinding/ksp/ProcessExpressions.kt
+--- a/compiler/src/main/java/android/databinding/ksp/ProcessExpressions.kt	(revision e0cc68a43269af43e103d9065d855b73873ec2d8)
++++ b/compiler/src/main/java/android/databinding/ksp/ProcessExpressions.kt	(date 1757411428580)
+@@ -33,7 +33,7 @@
+         processingEnvironment: SymbolProcessorEnvironment,
+         args: CompilerArguments
+     ): Boolean {
+-        try {
++//        try {
+             val resourceBundle = ResourceBundle(
+                 args.modulePackage,
+                 ModelAnalyzer.getInstance().libTypes.useAndroidX
+@@ -91,14 +91,14 @@
+             mine.appendTo(resourceBundle, true)
+ 
+             // generate resource bundle
+-            try {
++//            try {
+                 writeResourceBundle(resourceBundle, args, infoLog, v1CompatChef)
+-            } catch (t: Throwable) {
+-                L.e(t, "cannot generate view binders")
+-            }
+-        } catch (e: LoggedErrorException) {
+-            // This will be logged later
+-        }
++//            } catch (t: Throwable) {
++//                L.e(t, "cannot generate view binders")
++//            }
++//        } catch (e: LoggedErrorException) {
++//            // This will be logged later
++//        }
+         return true
+ 
+     }
+Index: compilerCommon/src/main/kotlin/android/databinding/tool/ksp/KspUtil.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/compilerCommon/src/main/kotlin/android/databinding/tool/ksp/KspUtil.kt b/compilerCommon/src/main/kotlin/android/databinding/tool/ksp/KspUtil.kt
+--- a/compilerCommon/src/main/kotlin/android/databinding/tool/ksp/KspUtil.kt	(revision e0cc68a43269af43e103d9065d855b73873ec2d8)
++++ b/compilerCommon/src/main/kotlin/android/databinding/tool/ksp/KspUtil.kt	(date 1757412118303)
+@@ -72,7 +72,7 @@
+ 
+ fun KSDeclaration.isInterface(): Boolean = (this as? KSClassDeclaration)?.classKind == ClassKind.INTERFACE
+ 
+-fun KSFunctionDeclaration.isStatic(): Boolean = this.modifiers.contains(Modifier.JAVA_STATIC)
++fun KSDeclaration.isStatic(): Boolean = this.modifiers.contains(Modifier.JAVA_STATIC)
+         || this.hasAnnotation(JVM_STATIC_ANNOTATION_FQN)
+ 
+ val JVM_STATIC_ANNOTATION_FQN = "kotlin.jvm.JvmStatic"
+Index: compilerCommon/src/main/kotlin/android/databinding/tool/BindableCompat.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/compilerCommon/src/main/kotlin/android/databinding/tool/BindableCompat.kt b/compilerCommon/src/main/kotlin/android/databinding/tool/BindableCompat.kt
+--- a/compilerCommon/src/main/kotlin/android/databinding/tool/BindableCompat.kt	(revision e0cc68a43269af43e103d9065d855b73873ec2d8)
++++ b/compilerCommon/src/main/kotlin/android/databinding/tool/BindableCompat.kt	(date 1757412590296)
+@@ -19,6 +19,7 @@
+ import android.databinding.tool.ksp.findAnnotationWithType
+ import androidx.databinding.Bindable
+ import com.google.devtools.ksp.symbol.KSFunctionDeclaration
++import com.google.devtools.ksp.symbol.KSPropertyDeclaration
+ import java.lang.reflect.Field
+ import java.lang.reflect.Method
+ import javax.lang.model.element.Element
+@@ -33,6 +34,11 @@
+         fun extractFrom(element : KSFunctionDeclaration) : BindableCompat? {
+             return extractSupport(element) ?: extractAndroidX(element)
+         }
++
++        @JvmStatic
++        fun extractFrom(element : KSPropertyDeclaration) : BindableCompat? {
++            return extractSupport(element) ?: extractAndroidX(element)
++        }
+ 
+         @JvmStatic
+         fun extractFrom(element : Element) : BindableCompat? {
+@@ -73,6 +79,14 @@
+             return method.findAnnotationWithType<LegacyBindable>()?.toCompat()
+         }
+ 
++        private fun extractAndroidX(prop: KSPropertyDeclaration): BindableCompat? {
++            return prop.findAnnotationWithType<Bindable>()?.toCompat()
++        }
++
++        private fun extractSupport(prop : KSPropertyDeclaration): BindableCompat? {
++            return prop.findAnnotationWithType<LegacyBindable>()?.toCompat()
++        }
++
+         private fun extractAndroidX(field: Field): BindableCompat? {
+             return field.getAnnotation(Bindable::class.java)?.toCompat()
+         }

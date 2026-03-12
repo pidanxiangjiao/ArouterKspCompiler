@@ -39,7 +39,7 @@ class KspAnnotationField(val mDeclaredClass: KSType, val mField: KSPropertyDecla
     }
 
     override fun getName(): String {
-        return mField.simpleName.toString()
+        return mField.simpleName.asString()
     }
 
     override fun isPublic(): Boolean {

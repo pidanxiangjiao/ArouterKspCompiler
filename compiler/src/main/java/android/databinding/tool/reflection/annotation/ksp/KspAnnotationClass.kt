@@ -154,7 +154,8 @@ public class KspAnnotationClass(
 
     override fun equals(other: Any?): Boolean {
         if (other is KspAnnotationClass) {
-            return typeMirror.toTypeName() == other.typeMirror.toTypeName()
+            return typeMirror.equals(other.typeMirror)
+//            return typeMirror.toTypeName() == other.typeMirror.toTypeName()
         }
         return false
     }
